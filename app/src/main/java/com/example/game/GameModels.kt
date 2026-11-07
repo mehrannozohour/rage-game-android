@@ -1,13 +1,51 @@
 package com.example.game
 
 /**
- * Game state, player entity, hunter entity, and particle system models.
+ * Game state, player entity, hunter entity, particle system, and difficulty models.
  */
 
 enum class GameScreen {
     MENU,
     PLAYING,
     HELP
+}
+
+enum class GameDifficulty(
+    val title: String,
+    val subtitle: String,
+    val speedMultiplier: Float,
+    val trapFrequencyMultiplier: Float, // Higher = more extra surprise traps generated
+    val triggerDistanceMultiplier: Float, // Triggers earlier or faster
+    val hunterAggression: Float,
+    val themeColorHex: Long
+) {
+    NORMAL(
+        title = "عادی (Normal)",
+        subtitle = "سرعت متعادل و تله‌های غافلگیرکننده استاندارد",
+        speedMultiplier = 1.0f,
+        trapFrequencyMultiplier = 1.0f,
+        triggerDistanceMultiplier = 1.0f,
+        hunterAggression = 1.0f,
+        themeColorHex = 0xFF00F5D4
+    ),
+    HARD(
+        title = "سخت (Hard)",
+        subtitle = "سرعت بالا (+۱۵٪) و افزایش تله‌های لیزری و متحرک",
+        speedMultiplier = 1.15f,
+        trapFrequencyMultiplier = 1.35f,
+        triggerDistanceMultiplier = 1.15f,
+        hunterAggression = 1.25f,
+        themeColorHex = 0xFFFEE440
+    ),
+    RAGE(
+        title = "خشم جنون‌آمیز (Rage)",
+        subtitle = "حداکثر سرعت (+۳۰٪)، تله‌های متوالی زنجیره‌ای و مامور پرسرعت!",
+        speedMultiplier = 1.30f,
+        trapFrequencyMultiplier = 1.70f,
+        triggerDistanceMultiplier = 1.28f,
+        hunterAggression = 1.60f,
+        themeColorHex = 0xFFFF2A5F
+    )
 }
 
 enum class PlayerPose {

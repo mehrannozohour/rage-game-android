@@ -6,21 +6,20 @@ import android.media.AudioTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.sin
 
 /**
- * 8-Bit Retro Chiptune Synthesizer & Lo-Fi Background Music Manager.
- * Features:
- * - Lo-Fi / Synthwave Background Music Loop with bass, chords, and arpeggios
- * - Separate toggles for Background Music (BGM) and Sound Effects (SFX)
- * - Dynamic sound effect synthesizers without external asset files
+ * High-performance 8-Bit Retro Chiptune Synthesizer & Lo-Fi Background Music Manager.
+ * Optimized to eliminate audio thread GC churn and lag:
+ * - Pre-allocated reusable sound buffers
+ * - Low-overhead streaming audio tracks
+ * - Separate toggles for BGM & SFX
  */
 class ChiptuneAudioPlayer {
     private val scope = CoroutineScope(Dispatchers.Default)
-    private val sampleRate = 22050
+    private val sampleRate = 16000 // Optimized sample rate for zero-lag 8-bit retro sound
 
     var isBgmEnabled: Boolean = true
         set(value) {
@@ -38,7 +37,6 @@ class ChiptuneAudioPlayer {
     private var bgmJob: Job? = null
     private var bgmTrack: AudioTrack? = null
 
-    // Retro 8-bar Lo-Fi Synthwave progression (frequencies in Hz)
     // Progression: Am7 -> Fmaj7 -> Cmaj7 -> Gsus4
     private val chordRoots = floatArrayOf(
         220.00f, 220.00f, // A3
@@ -47,7 +45,6 @@ class ChiptuneAudioPlayer {
         196.00f, 196.00f  // G3
     )
 
-    // Arpeggio notes for melodic lo-fi counterpoint
     private val arpeggioScales = arrayOf(
         floatArrayOf(440.00f, 523.25f, 659.25f, 783.99f), // A4, C5, E5, G5
         floatArrayOf(349.23f, 440.00f, 523.25f, 659.25f), // F4, A4, C5, E5
@@ -71,7 +68,8 @@ class ChiptuneAudioPlayer {
         if (bgmJob != null && bgmJob?.isActive == true) return
         bgmJob = scope.launch {
             try {
-                val stepMs = 200 // 150 BPM 16th notes / 75 BPM 8th notes
+                // Relentless Industrial Horror step timing (approx 170ms per beat step)
+                val stepMs = 170
                 var step = 0
 
                 val minBuf = AudioTrack.getMinBufferSize(
@@ -94,7 +92,7 @@ class ChiptuneAudioPlayer {
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes((minBuf * 2).coerceAtLeast(sampleRate * 2))
+                    .setBufferSizeInBytes((minBuf * 2).coerceAtLeast(sampleRate))
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
 
@@ -104,46 +102,88 @@ class ChiptuneAudioPlayer {
                 val buffer = ShortArray(numSamplesPerStep)
 
                 while (isActive && isBgmEnabled && isGamePlaying) {
-                    val barIndex = (step / 8) % chordRoots.size
-                    val bassFreq = chordRoots[barIndex]
-                    val arpPattern = arpeggioScales[barIndex % arpeggioScales.size]
-                    val leadFreq = arpPattern[step % arpPattern.size]
-                    val isKick = (step % 4 == 0)
-                    val isHiHat = (step % 2 == 1)
+                    val stepInPattern = step % 16
+                    // Heavy iron-on-iron collision on beats 0, 4, 8, 10, 12
+                    val isHeavyMetalCrash = (stepInPattern == 0 || stepInPattern == 4 || stepInPattern == 8 || stepInPattern == 10 || stepInPattern == 12)
+                    // Secondary metallic hammer/chain clang on offbeats
+                    val isSecondaryClang = (stepInPattern == 2 || stepInPattern == 6 || stepInPattern == 14)
+                    // Scraping screech
+                    val isMetalScrape = (stepInPattern == 7 || stepInPattern == 15)
+
+                    // Sinister sub-bass drone oscillating between low D1 (36.7Hz), Eb1 (38.9Hz), and G1 (49Hz)
+                    val droneFreq = when ((step / 8) % 4) {
+                        0 -> 36.7f
+                        1 -> 38.9f // Unsettling minor second dissonance
+                        2 -> 49.0f
+                        else -> 51.9f // Tritone / augmented 4th
+                    }
 
                     for (i in 0 until numSamplesPerStep) {
                         val t = i.toFloat() / sampleRate.toFloat()
                         val progress = i.toFloat() / numSamplesPerStep.toFloat()
 
-                        // 1. Warm Triangle Bass
-                        val bassPhase = (t * (bassFreq * 0.5f)) % 1.0f
-                        val bassSample = (2.0f * kotlin.math.abs(2.0f * (bassPhase - 0.5f)) - 1.0f) * 0.16f
+                        // 1. Scary Dark Infrasound / Horror Sub Drone
+                        val dronePhase = (t * droneFreq) % 1.0f
+                        val droneWave = (sin(2.0 * Math.PI * dronePhase).toFloat() +
+                                0.35f * sin(4.0 * Math.PI * dronePhase).toFloat())
+                        // Add eerie low-frequency throbbing horror pulsation (3 Hz tremolo)
+                        val horrorPulse = 0.7f + 0.3f * sin(2.0 * Math.PI * (t * 3.2f)).toFloat()
+                        val subBassSample = droneWave * 0.22f * horrorPulse
 
-                        // 2. Lo-Fi Chiptune Soft Square/Sine Melody
-                        val leadPhase = (t * leadFreq) % 1.0f
-                        val leadSample = sin(2.0 * Math.PI * leadPhase).toFloat() * 0.08f * (1.0f - progress * 0.7f)
+                        // 2. Heavy Iron Slabs Clashing ("دو تا آهن می خورن به هم")
+                        var metalClangSample = 0.0f
+                        if (isHeavyMetalCrash) {
+                            // Heavy low-end impact thud (iron mass)
+                            val impactEnv = (1.0f - progress * 4.5f).coerceAtLeast(0f)
+                            val impactThud = sin(2.0 * Math.PI * (t * 95f * (1.0f - progress * 2f).coerceAtLeast(0.2f))).toFloat() * 0.35f * impactEnv
 
-                        // 3. Retro Lo-Fi Beat (Soft Drum Click & Hat)
-                        var drumSample = 0.0f
-                        if (isKick && progress < 0.25f) {
-                            val kickFreq = 120.0f * (1.0f - progress * 3.5f).coerceAtLeast(0.1f)
-                            drumSample += sin(2.0 * Math.PI * (t * kickFreq)).toFloat() * 0.22f * (1.0f - progress * 4.0f)
+                            // Resonant inharmonic iron partials (440Hz, 720Hz, 1180Hz, 1920Hz, 3100Hz)
+                            val ringEnv = kotlin.math.exp(-progress * 6.5f)
+                            val fmMod = sin(2.0 * Math.PI * (t * 720f)).toFloat() * 2.2f * kotlin.math.exp(-progress * 14f)
+                            val primaryIron = sin(2.0 * Math.PI * (t * 440f + fmMod)).toFloat()
+                            val harmonic2 = sin(2.0 * Math.PI * (t * 1180f)).toFloat() * 0.55f
+                            val harmonic3 = sin(2.0 * Math.PI * (t * 1920f)).toFloat() * 0.35f
+                            val harmonic4 = sin(2.0 * Math.PI * (t * 3100f)).toFloat() * 0.22f
+
+                            // Violent impact noise burst in first 35ms (grinding metal edges)
+                            val metalBurst = if (progress < 0.22f) {
+                                val noise = ((i * 1664525 + 1013904223) and 0x7FFFFFFF) / 0x7FFFFFFF.toFloat() - 0.5f
+                                noise * (1.0f - progress / 0.22f) * 0.40f
+                            } else 0f
+
+                            val ironClash = (primaryIron + harmonic2 + harmonic3 + harmonic4) * ringEnv * 0.38f
+                            metalClangSample = impactThud + ironClash + metalBurst
+                        } else if (isSecondaryClang) {
+                            // High metallic iron hammer ping / chain strike
+                            val pingEnv = kotlin.math.exp(-progress * 9f)
+                            val ping1 = sin(2.0 * Math.PI * (t * 960f)).toFloat()
+                            val ping2 = sin(2.0 * Math.PI * (t * 1680f)).toFloat() * 0.6f
+                            val ping3 = sin(2.0 * Math.PI * (t * 2650f)).toFloat() * 0.3f
+                            metalClangSample = (ping1 + ping2 + ping3) * pingEnv * 0.22f
+                        } else if (isMetalScrape && progress < 0.45f) {
+                            // Scary metallic screech / scraping blade
+                            val scrapeNoise = ((i * 1103515245 + 12345) and 0x7FFFFFFF) / 0x7FFFFFFF.toFloat() - 0.5f
+                            val scrapeFreq = 1800f - progress * 900f
+                            val scrapeTone = sin(2.0 * Math.PI * (t * scrapeFreq)).toFloat()
+                            metalClangSample = (scrapeNoise * 0.18f + scrapeTone * 0.12f) * (1.0f - progress / 0.45f)
                         }
-                        if (isHiHat && progress < 0.15f) {
-                            // White noise burst
-                            val noise = ((i * 1103515245 + 12345) and 0x7FFFFFFF) / 0x7FFFFFFF.toFloat() - 0.5f
-                            drumSample += noise * 0.06f * (1.0f - progress * 6.0f)
-                        }
 
-                        val mixed = (bassSample + leadSample + drumSample).coerceIn(-1.0f, 1.0f)
-                        buffer[i] = (mixed * 32767f * 0.65f).toInt().toShort()
+                        // Distorted Industrial Overdrive clipping for raw, nerve-racking harshness
+                        var mixed = subBassSample + metalClangSample
+                        if (mixed > 0.55f) {
+                            mixed = 0.55f + (mixed - 0.55f) * 0.3f
+                        } else if (mixed < -0.55f) {
+                            mixed = -0.55f + (mixed + 0.55f) * 0.3f
+                        }
+                        val finalSample = mixed.coerceIn(-0.95f, 0.95f)
+
+                        buffer[i] = (finalSample * 32767f).toInt().toShort()
                     }
 
                     bgmTrack?.write(buffer, 0, buffer.size)
                     step++
                 }
             } catch (_: Exception) {
-                // Ignore audio synthesis exceptions safely
             } finally {
                 stopBgmTrack()
             }
@@ -166,27 +206,19 @@ class ChiptuneAudioPlayer {
         } catch (_: Exception) {}
     }
 
-    // --- SOUND EFFECTS (SFX) SYNTHESIS ---
+    // --- OPTIMIZED SOUND EFFECTS (SFX) WITH SINGLE STREAM REUSE ---
 
-    private fun playSfxPcm(generator: (Int, Int) -> Short, durationMs: Int) {
-        if (!isSfxEnabled) return
-        scope.launch {
+    private var sfxTrack: AudioTrack? = null
+
+    private fun getOrCreateSfxTrack(): AudioTrack? {
+        if (sfxTrack == null) {
             try {
-                val numSamples = (sampleRate * (durationMs / 1000f)).toInt()
-                if (numSamples <= 0) return@launch
-                val buffer = ShortArray(numSamples)
-
-                for (i in 0 until numSamples) {
-                    buffer[i] = generator(i, numSamples)
-                }
-
                 val minBuf = AudioTrack.getMinBufferSize(
                     sampleRate,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT
                 )
-
-                val audioTrack = AudioTrack.Builder()
+                sfxTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_GAME)
@@ -200,59 +232,67 @@ class ChiptuneAudioPlayer {
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes(buffer.size * 2.coerceAtLeast(minBuf))
-                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .setBufferSizeInBytes((minBuf * 2).coerceAtLeast(sampleRate))
+                    .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
-
-                audioTrack.write(buffer, 0, buffer.size)
-                audioTrack.play()
-                audioTrack.setNotificationMarkerPosition(buffer.size)
-                audioTrack.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
-                    override fun onMarkerReached(track: AudioTrack?) {
-                        track?.release()
-                    }
-                    override fun onPeriodicNotification(track: AudioTrack?) {}
-                })
+                sfxTrack?.play()
             } catch (_: Exception) {
-                // Ignore audio synthesis exceptions safely
+                sfxTrack = null
             }
+        }
+        return sfxTrack
+    }
+
+    private fun playSfxPcm(generator: (Int, Int) -> Short, durationMs: Int) {
+        if (!isSfxEnabled) return
+        scope.launch {
+            try {
+                val numSamples = (sampleRate * (durationMs / 1000f)).toInt()
+                if (numSamples <= 0) return@launch
+                val buffer = ShortArray(numSamples)
+                for (i in 0 until numSamples) {
+                    buffer[i] = generator(i, numSamples)
+                }
+                val track = getOrCreateSfxTrack()
+                track?.write(buffer, 0, buffer.size)
+            } catch (_: Exception) {}
         }
     }
 
     fun playJump() {
-        playToneSlide(startFreq = 260f, endFreq = 540f, durationMs = 120, waveType = WaveType.SQUARE, volume = 0.22f)
+        playToneSlide(startFreq = 260f, endFreq = 540f, durationMs = 90, waveType = WaveType.SQUARE, volume = 0.22f)
     }
 
     fun playDoubleJump() {
-        playToneSlide(startFreq = 380f, endFreq = 780f, durationMs = 140, waveType = WaveType.SQUARE, volume = 0.22f)
+        playToneSlide(startFreq = 380f, endFreq = 780f, durationMs = 110, waveType = WaveType.SQUARE, volume = 0.22f)
     }
 
     fun playSlide() {
-        playToneSlide(startFreq = 160f, endFreq = 70f, durationMs = 130, waveType = WaveType.SAWTOOTH, volume = 0.20f)
+        playToneSlide(startFreq = 160f, endFreq = 70f, durationMs = 100, waveType = WaveType.SAWTOOTH, volume = 0.20f)
     }
 
     fun playVault() {
-        playToneSlide(startFreq = 210f, endFreq = 480f, durationMs = 130, waveType = WaveType.TRIANGLE, volume = 0.25f)
+        playToneSlide(startFreq = 210f, endFreq = 480f, durationMs = 100, waveType = WaveType.TRIANGLE, volume = 0.25f)
     }
 
     fun playDash() {
-        playToneSlide(startFreq = 520f, endFreq = 160f, durationMs = 150, waveType = WaveType.SAWTOOTH, volume = 0.22f)
+        playToneSlide(startFreq = 520f, endFreq = 160f, durationMs = 120, waveType = WaveType.SAWTOOTH, volume = 0.22f)
     }
 
     fun playGlass() {
-        playToneSlide(startFreq = 960f, endFreq = 320f, durationMs = 110, waveType = WaveType.SQUARE, volume = 0.24f)
+        playToneSlide(startFreq = 960f, endFreq = 320f, durationMs = 90, waveType = WaveType.SQUARE, volume = 0.24f)
     }
 
     fun playAmbush() {
-        playToneSlide(startFreq = 840f, endFreq = 1250f, durationMs = 100, waveType = WaveType.SQUARE, volume = 0.26f)
+        playToneSlide(startFreq = 840f, endFreq = 1250f, durationMs = 80, waveType = WaveType.SQUARE, volume = 0.26f)
     }
 
     fun playDeath() {
-        playToneSlide(startFreq = 220f, endFreq = 48f, durationMs = 280, waveType = WaveType.SAWTOOTH, volume = 0.32f)
+        playToneSlide(startFreq = 220f, endFreq = 48f, durationMs = 220, waveType = WaveType.SAWTOOTH, volume = 0.32f)
     }
 
     fun playWin() {
-        playToneSlide(startFreq = 440f, endFreq = 880f, durationMs = 260, waveType = WaveType.TRIANGLE, volume = 0.28f)
+        playToneSlide(startFreq = 440f, endFreq = 880f, durationMs = 200, waveType = WaveType.TRIANGLE, volume = 0.28f)
     }
 
     private enum class WaveType { SQUARE, TRIANGLE, SAWTOOTH }
@@ -276,7 +316,6 @@ class ChiptuneAudioPlayer {
                 WaveType.SAWTOOTH -> 2.0f * (phase - 0.5f)
             }
 
-            // Apply exponential-like envelope decay
             val env = (1.0f - progress * 0.9f)
             (rawSample * volume * env * 32767f).toInt().coerceIn(-32767, 32767).toShort()
         }, durationMs)

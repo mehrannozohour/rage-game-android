@@ -1,6 +1,9 @@
 package com.example.game
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import android.os.SystemClock
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,11 +28,20 @@ data class GameUiState(
     val slowMoEnabled: Boolean = false,
     val bgmEnabled: Boolean = true,
     val sfxEnabled: Boolean = true,
+    val difficulty: GameDifficulty = GameDifficulty.RAGE,
     val currentDeathDetails: DeathDetails? = null,
-    val laughBubble: String = "HAHA!"
+    val laughBubble: String = "HAHA!",
+    val frameTick: Long = 0L,
+    val currentStageTime: Float = 0f,
+    val personalBestTime: Float? = null,
+    val isNewRecord: Boolean = false,
+    val lastCompletedTime: Float? = null,
+    val isTimerRunning: Boolean = false
 )
 
-class VectorRageViewModel : ViewModel() {
+class VectorRageViewModel(application: Application) : AndroidViewModel(application) {
+    private val prefs = application.getSharedPreferences("vector_rage_records", Context.MODE_PRIVATE)
+
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
@@ -51,6 +63,34 @@ class VectorRageViewModel : ViewModel() {
     var tick: Long = 0
     var deathTimer: Float = 0f
     private var lastTauntTitle: String = ""
+
+    // Speedrun Best Time Tracking
+    private var stageStartTimeMs: Long = 0L
+    private var hasPlayerMoved: Boolean = false
+    private var isTimerRunning: Boolean = false
+    private var stageCurrentTimeSec: Float = 0f
+
+    fun getBestTimeFor(stageIdx: Int, diff: GameDifficulty): Float? {
+        val key = "pb_stage_${stageIdx}_${diff.name.lowercase()}"
+        return if (prefs.contains(key)) {
+            val v = prefs.getFloat(key, -1f)
+            if (v > 0f) v else null
+        } else null
+    }
+
+    private fun saveBestTime(stageIdx: Int, diff: GameDifficulty, timeSec: Float) {
+        val key = "pb_stage_${stageIdx}_${diff.name.lowercase()}"
+        prefs.edit().putFloat(key, timeSec).apply()
+    }
+
+    fun startTimerIfNeeded() {
+        if (!hasPlayerMoved) {
+            hasPlayerMoved = true
+            isTimerRunning = true
+            stageStartTimeMs = SystemClock.elapsedRealtime()
+            _uiState.update { it.copy(isTimerRunning = true) }
+        }
+    }
 
     init {
         initCityBuildings()
@@ -116,14 +156,55 @@ class VectorRageViewModel : ViewModel() {
 
     fun loadStage(idx: Int, resetStageDeaths: Boolean = false) {
         val stg = stages[idx]
+        val diff = _uiState.value.difficulty
         currentFloors = stg.floors
-        currentTraps = stg.traps.map { it.copy(
-            triggered = false,
-            broken = false,
-            currentMode = it.mode,
-            dropY = 0f,
-            alertTimer = 0f
-        ) }.toMutableList()
+
+        // Base traps scaled by trigger distance and frequency multipliers
+        val baseTraps = stg.traps.map {
+            it.copy(
+                triggered = false,
+                broken = false,
+                currentMode = it.mode,
+                dropY = 0f,
+                alertTimer = 0f,
+                triggerDist = it.triggerDist * diff.triggerDistanceMultiplier
+            )
+        }.toMutableList()
+
+        // In Hard & Rage mode, inject additional surprise obstacles and ambush traps
+        if (diff == GameDifficulty.HARD || diff == GameDifficulty.RAGE) {
+            val extraCount = if (diff == GameDifficulty.RAGE) 3 else 1
+            for (i in 0 until extraCount) {
+                val offset = 260f + i * 360f
+                if (offset < stg.length - 120f) {
+                    val floor = currentFloors.firstOrNull { offset >= it.x && offset <= it.x + it.w }
+                    val fy = floor?.y ?: 170f
+                    if (diff == GameDifficulty.RAGE) {
+                        baseTraps.add(
+                            StageTrap(
+                                type = if (i % 2 == 0) TrapType.ELEVATOR_LASER else TrapType.WALKING_BOX,
+                                x = offset,
+                                y = fy,
+                                mode = if (i % 2 == 0) "low" else "high",
+                                endMode = if (i % 2 == 0) "high" else "low",
+                                triggerDist = 95f * diff.triggerDistanceMultiplier,
+                                vx = -2.2f
+                            )
+                        )
+                    } else {
+                        baseTraps.add(
+                            StageTrap(
+                                type = TrapType.SPIKE_MIMIC_BOX,
+                                x = offset,
+                                y = fy,
+                                triggerDist = 88f * diff.triggerDistanceMultiplier
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        currentTraps = baseTraps
 
         exitGate = ExitGateState(
             x = stg.length,
@@ -132,11 +213,12 @@ class VectorRageViewModel : ViewModel() {
             faked = false
         )
 
+        val scaledSpeed = stg.speed * diff.speedMultiplier
         runner = RunnerState(
             x = 64f,
             y = stg.floors.first().y,
-            vx = stg.speed,
-            baseSpeed = stg.speed,
+            vx = scaledSpeed,
+            baseSpeed = scaledSpeed,
             vy = 0f,
             onGround = true,
             jumpsLeft = 2,
@@ -161,13 +243,23 @@ class VectorRageViewModel : ViewModel() {
         shake = 0f
         deathTimer = 0f
 
+        hasPlayerMoved = false
+        isTimerRunning = false
+        stageStartTimeMs = 0L
+        stageCurrentTimeSec = 0f
+        val pb = getBestTimeFor(idx, diff)
+
         _uiState.update {
             it.copy(
                 stageIdx = idx,
                 isDead = false,
                 isStageWon = false,
                 currentDeathDetails = null,
-                stageDeaths = if (resetStageDeaths) 0 else it.stageDeaths
+                stageDeaths = if (resetStageDeaths) 0 else it.stageDeaths,
+                currentStageTime = 0f,
+                personalBestTime = pb,
+                isNewRecord = false,
+                isTimerRunning = false
             )
         }
     }
@@ -359,6 +451,7 @@ class VectorRageViewModel : ViewModel() {
             return
         }
         if (_uiState.value.currentScreen != GameScreen.PLAYING) return
+        startTimerIfNeeded()
 
         // Check Kong Vault over normal vault_box
         val nearBox = currentTraps.firstOrNull {
@@ -406,6 +499,7 @@ class VectorRageViewModel : ViewModel() {
             return
         }
         if (_uiState.value.currentScreen != GameScreen.PLAYING) return
+        startTimerIfNeeded()
 
         if (!runner.onGround) {
             // Fast fall slam to dodge sudden high obstacles
@@ -429,6 +523,7 @@ class VectorRageViewModel : ViewModel() {
             return
         }
         if (_uiState.value.currentScreen != GameScreen.PLAYING || runner.dashCooldown > 0f) return
+        startTimerIfNeeded()
 
         runner.dashTimer = 14f
         runner.dashCooldown = 48f
@@ -495,6 +590,8 @@ class VectorRageViewModel : ViewModel() {
             deathsInStage = nextStageDeaths
         )
 
+        isTimerRunning = false
+
         _uiState.update {
             it.copy(
                 isDead = true,
@@ -502,14 +599,36 @@ class VectorRageViewModel : ViewModel() {
                 stageDeaths = nextStageDeaths,
                 ragePercent = nextRage,
                 currentDeathDetails = details,
-                laughBubble = laugh
+                laughBubble = laugh,
+                isTimerRunning = false,
+                currentStageTime = stageCurrentTimeSec
             )
         }
     }
 
     private fun handleStageWin() {
         if (_uiState.value.isStageWon) return
-        _uiState.update { it.copy(isStageWon = true) }
+        isTimerRunning = false
+        val finalTime = stageCurrentTimeSec
+        val currentIdx = _uiState.value.stageIdx
+        val diff = _uiState.value.difficulty
+        val previousPB = getBestTimeFor(currentIdx, diff)
+        val isNewRecord = previousPB == null || finalTime < previousPB
+        if (isNewRecord) {
+            saveBestTime(currentIdx, diff, finalTime)
+        }
+        val bestTime = if (isNewRecord) finalTime else previousPB
+
+        _uiState.update {
+            it.copy(
+                isStageWon = true,
+                isTimerRunning = false,
+                currentStageTime = finalTime,
+                lastCompletedTime = finalTime,
+                personalBestTime = bestTime,
+                isNewRecord = isNewRecord
+            )
+        }
         audioPlayer.playWin()
 
         // Celebration confetti & fireworks
@@ -518,8 +637,7 @@ class VectorRageViewModel : ViewModel() {
         spawnBurst(exitGate.x, exitGate.y - 20f, 0xFFFF2A5F, 24, ParticleType.ELEC_ZAP, minSpeed = 1f, maxSpeed = 4f)
 
         viewModelScope.launch {
-            kotlinx.coroutines.delay(800)
-            val currentIdx = _uiState.value.stageIdx
+            kotlinx.coroutines.delay(1600)
             val nextIdx = (currentIdx + 1) % stages.size
             loadStage(nextIdx, resetStageDeaths = true)
         }
@@ -569,6 +687,16 @@ class VectorRageViewModel : ViewModel() {
         }
 
         if (_uiState.value.currentScreen != GameScreen.PLAYING || _uiState.value.isStageWon) return
+
+        // Best Time Tracker: Starts when the player moves
+        if (!hasPlayerMoved && runner.x > 64.1f) {
+            startTimerIfNeeded()
+        }
+
+        if (isTimerRunning) {
+            val elapsedMs = SystemClock.elapsedRealtime() - stageStartTimeMs
+            stageCurrentTimeSec = elapsedMs / 1000f
+        }
 
         // --- Continuous Movement Trail Particle Emitters ---
         if (runner.onGround) {
@@ -659,9 +787,11 @@ class VectorRageViewModel : ViewModel() {
         scarfPixels.add(0, Pair(runner.x - 3f, runner.y - (if (runner.pose == PlayerPose.SLIDE) 8f else 19f)))
         if (scarfPixels.size > 10) scarfPixels.removeAt(scarfPixels.size - 1)
 
-        // Hunter Agent AI
-        val targetDist = if (runner.stumbleTimer > 0f) 14f else 56f
-        hunter.x = hunter.x + (runner.x - targetDist - hunter.x) * (if (runner.stumbleTimer > 0f) 0.09f else 0.045f) * dt
+        // Hunter Agent AI with difficulty aggression
+        val diff = _uiState.value.difficulty
+        val targetDist = if (runner.stumbleTimer > 0f) 14f else (56f / diff.hunterAggression)
+        val hunterFollowRate = (if (runner.stumbleTimer > 0f) 0.09f else 0.045f) * diff.hunterAggression
+        hunter.x = hunter.x + (runner.x - targetDist - hunter.x) * hunterFollowRate * dt
         val hgy = getGroundAt(hunter.x)
         hunter.y = if (hgy != null) hunter.y + (hgy - hunter.y) * 0.3f else runner.y
         hunter.frame += runner.vx * 0.12f * dt
@@ -873,5 +1003,12 @@ class VectorRageViewModel : ViewModel() {
 
         // Smooth Camera Follow
         camX += (runner.x - 90f - camX) * 0.22f
+
+        _uiState.update {
+            it.copy(
+                frameTick = tick,
+                currentStageTime = stageCurrentTimeSec
+            )
+        }
     }
 }

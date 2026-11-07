@@ -154,6 +154,7 @@ fun RageApp(viewModel: VectorRageViewModel) {
                         ) {
                             DeathRageOverlay(
                                 details = uiState.currentDeathDetails,
+                                survivalTime = uiState.currentStageTime,
                                 onRetry = { viewModel.restartCurrentStage() }
                             )
                         }
@@ -165,7 +166,10 @@ fun RageApp(viewModel: VectorRageViewModel) {
                             exit = fadeOut()
                         ) {
                             StageWinOverlay(
-                                stageNum = uiState.stageIdx + 1
+                                stageNum = uiState.stageIdx + 1,
+                                timeTaken = uiState.lastCompletedTime ?: uiState.currentStageTime,
+                                bestTime = uiState.personalBestTime,
+                                isNewRecord = uiState.isNewRecord
                             )
                         }
                     }

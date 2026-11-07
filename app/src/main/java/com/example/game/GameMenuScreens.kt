@@ -66,48 +66,80 @@ fun MainMenuScreen(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 520.dp)
-                .fillMaxWidth(0.9f)
-                .padding(16.dp),
+                .widthIn(max = 560.dp)
+                .fillMaxWidth(0.92f)
+                .padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             // Neon Logo Header - RAGE
             Text(
                 text = "⚡ RAGE ⚡",
-                fontSize = 32.sp,
+                fontSize = 34.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF00F5D4),
+                color = Color(0xFFFF2A5F),
                 letterSpacing = 4.sp
             )
 
             Text(
                 text = "کابوس غیرقابل پیش‌بینی پشت‌بام",
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF2A5F),
-                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                color = Color(0xFF00F5D4),
+                modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
             )
 
-            // Primary Play Button (Direct Entry to Game)
+            // Permanent Hardcore / Frustration Mode Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x33FF2A5F), RoundedCornerShape(14.dp))
+                    .border(1.5.dp, Color(0xFFFF2A5F), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(text = "🔥💀", fontSize = 26.sp)
+                    Column {
+                        Text(
+                            text = "سطح بازی: فوق‌العاده سخت و اعصاب‌خردکن!",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFF2A5F)
+                        )
+                        Text(
+                            text = "هیچ حالت آسانی وجود ندارد! تله‌ها سریع، غافلگیرکننده و بی‌رحمند.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFCBD5E1)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Primary Play Button
             Button(
                 onClick = onStartGame,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00F5D4),
-                    contentColor = Color(0xFF05060D)
+                    containerColor = Color(0xFFFF2A5F),
+                    contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .shadow(12.dp, RoundedCornerShape(16.dp))
+                    .height(54.dp)
+                    .shadow(12.dp, RoundedCornerShape(14.dp))
                     .testTag("menu_play_button")
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color(0xFF05060D), modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "شروع بازی",
-                    fontSize = 18.sp,
+                    text = "ورود به کابوس رِیج (شروع بازی)",
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -225,13 +257,30 @@ fun MainMenuScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Stats
-            Text(
-                text = "💀 مجموع کل سوختن‌ها: ${GameData.toPersianDigits(uiState.totalDeaths)}",
-                color = Color(0xAA94A3B8),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            // Stats Row: Total Deaths & Personal Best
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "💀 کل سوختن‌ها: ${GameData.toPersianDigits(uiState.totalDeaths)}",
+                    color = Color(0xAA94A3B8),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                if (uiState.personalBestTime != null) {
+                    Text(
+                        text = "🏆 رکورد مرحله ${GameData.toPersianDigits(uiState.stageIdx + 1)}: ${GameData.formatTimerPersian(uiState.personalBestTime)} ثانیه",
+                        color = Color(0xFFFEE440),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }

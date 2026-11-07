@@ -62,106 +62,205 @@ fun GameHud(
     onToggleSfx: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Left Side: Navigation / Quick Tools
+        // Row 1: Left navigation/sound tools and Right status badges
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onOpenMenu,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
-                    .border(1.5.dp, Color(0xFF00F5D4), RoundedCornerShape(10.dp))
-                    .testTag("hud_menu_button")
+            // Left Side: Navigation / Quick Tools
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "منو اصلی", tint = Color(0xFF00F5D4))
+                IconButton(
+                    onClick = onOpenMenu,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
+                        .border(1.5.dp, Color(0xFF00F5D4), RoundedCornerShape(10.dp))
+                        .testTag("hud_menu_button")
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "منو اصلی", tint = Color(0xFF00F5D4))
+                }
+
+                IconButton(
+                    onClick = onRestartStage,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
+                        .border(1.5.dp, Color(0xFFFEE440), RoundedCornerShape(10.dp))
+                        .testTag("hud_restart_button")
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "شروع مجدد", tint = Color(0xFFFEE440))
+                }
+
+                // BGM Music Loop Toggle
+                IconButton(
+                    onClick = onToggleBgm,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
+                        .border(1.5.dp, if (uiState.bgmEnabled) Color(0xFF00F5D4) else Color(0xFFFF2A5F), RoundedCornerShape(10.dp))
+                        .testTag("hud_bgm_button")
+                ) {
+                    Icon(
+                        if (uiState.bgmEnabled) Icons.Default.MusicNote else Icons.Default.MusicOff,
+                        contentDescription = "موسیقی پس‌زمینه",
+                        tint = if (uiState.bgmEnabled) Color(0xFF00F5D4) else Color(0xFFFF2A5F)
+                    )
+                }
+
+                // SFX Sound Effects Toggle
+                IconButton(
+                    onClick = onToggleSfx,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
+                        .border(1.5.dp, if (uiState.sfxEnabled) Color(0xFFFEE440) else Color(0xFFFF2A5F), RoundedCornerShape(10.dp))
+                        .testTag("hud_sfx_button")
+                ) {
+                    Icon(
+                        if (uiState.sfxEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                        contentDescription = "جلوه‌های صوتی",
+                        tint = if (uiState.sfxEnabled) Color(0xFFFEE440) else Color(0xFFFF2A5F)
+                    )
+                }
             }
 
-            IconButton(
-                onClick = onRestartStage,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
-                    .border(1.5.dp, Color(0xFFFEE440), RoundedCornerShape(10.dp))
-                    .testTag("hud_restart_button")
+            // Center / Right Side: Minimal Stats Badges
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "شروع مجدد", tint = Color(0xFFFEE440))
-            }
+                // Stage Indicator
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xDD000000), RoundedCornerShape(10.dp))
+                        .border(1.5.dp, Color(0xFF00F5D4), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 9.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = "مرحله ${GameData.toPersianDigits(uiState.stageIdx + 1)} / ۱۰",
+                        color = Color(0xFF00F5D4),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
 
-            // BGM Music Loop Toggle
-            IconButton(
-                onClick = onToggleBgm,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
-                    .border(1.5.dp, if (uiState.bgmEnabled) Color(0xFF00F5D4) else Color(0xFFFF2A5F), RoundedCornerShape(10.dp))
-                    .testTag("hud_bgm_button")
-            ) {
-                Icon(
-                    if (uiState.bgmEnabled) Icons.Default.MusicNote else Icons.Default.MusicOff,
-                    contentDescription = "موسیقی پس‌زمینه",
-                    tint = if (uiState.bgmEnabled) Color(0xFF00F5D4) else Color(0xFFFF2A5F)
-                )
-            }
-
-            // SFX Sound Effects Toggle
-            IconButton(
-                onClick = onToggleSfx,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color(0xCC090B16), RoundedCornerShape(10.dp))
-                    .border(1.5.dp, if (uiState.sfxEnabled) Color(0xFFFEE440) else Color(0xFFFF2A5F), RoundedCornerShape(10.dp))
-                    .testTag("hud_sfx_button")
-            ) {
-                Icon(
-                    if (uiState.sfxEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                    contentDescription = "جلوه‌های صوتی",
-                    tint = if (uiState.sfxEnabled) Color(0xFFFEE440) else Color(0xFFFF2A5F)
-                )
+                // Deaths Counter
+                Box(
+                    modifier = Modifier
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color(0xF51A0710), Color(0xDD090B16))
+                            ),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .border(1.5.dp, Color(0xFFFF2A5F), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .testTag("hud_deaths_counter")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "💀",
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = GameData.toPersianDigits(uiState.totalDeaths),
+                            color = Color(0xFFFF2A5F),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
             }
         }
 
-        // Center / Right Side: Minimal Stats Badges
+        // Row 2: Live Stopwatch & Personal Best Time (PB) Display
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Stage Indicator
+            // Live Stopwatch (Starts when player moves, stops at finish line)
             Box(
                 modifier = Modifier
-                    .background(Color(0xDD000000), RoundedCornerShape(10.dp))
-                    .border(1.5.dp, Color(0xFF00F5D4), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .background(Color(0xEE090B16), RoundedCornerShape(10.dp))
+                    .border(
+                        1.5.dp,
+                        if (uiState.isTimerRunning) Color(0xFF00F5D4) else Color(0x7700F5D4),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .testTag("hud_live_timer")
             ) {
-                Text(
-                    text = "مرحله ${GameData.toPersianDigits(uiState.stageIdx + 1)} / ۱۰",
-                    color = Color(0xFF00F5D4),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(
+                        text = "⏱️ زمان:",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${GameData.formatTimerPersian(uiState.currentStageTime)} ثانیه",
+                        color = if (uiState.isTimerRunning) Color(0xFF00F5D4) else Color(0xFFE2E8F0),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
 
-            // Deaths Counter
+            // Personal Best Tracker (Best Time on this level)
             Box(
                 modifier = Modifier
-                    .background(Color(0xDD000000), RoundedCornerShape(10.dp))
-                    .border(1.5.dp, Color(0xFFFF2A5F), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(Color(0xF01C1A06), Color(0xEE090B16))
+                        ),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .border(
+                        1.5.dp,
+                        if (uiState.personalBestTime != null) Color(0xFFFEE440) else Color(0x5564748B),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .testTag("hud_best_time")
             ) {
-                Text(
-                    text = "💀 ${GameData.toPersianDigits(uiState.totalDeaths)}",
-                    color = Color(0xFFFF2A5F),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(
+                        text = "🏆 بهترین رکورد:",
+                        color = if (uiState.personalBestTime != null) Color(0xFFFEE440) else Color(0xFF94A3B8),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (uiState.personalBestTime != null) {
+                            "${GameData.formatTimerPersian(uiState.personalBestTime)} ثانیه"
+                        } else {
+                            "ثبت نشده"
+                        },
+                        color = if (uiState.personalBestTime != null) Color(0xFFFEE440) else Color(0xFF94A3B8),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
         }
     }
@@ -174,6 +273,7 @@ fun GameHud(
 fun DeathRageOverlay(
     details: DeathDetails?,
     onRetry: () -> Unit,
+    survivalTime: Float? = null,
     modifier: Modifier = Modifier
 ) {
     if (details == null) return
@@ -200,32 +300,49 @@ fun DeathRageOverlay(
             // Top Badge Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
                         .background(Color(0x33FF2A5F), RoundedCornerShape(6.dp))
                         .border(1.dp, Color(0x66FF2A5F), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "💀 بار ${GameData.toPersianDigits(details.deathsInStage)} تو این مرحله!",
+                        text = "💀 بار ${GameData.toPersianDigits(details.deathsInStage)}!",
                         color = Color(0xFFFF758F),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+
+                if (survivalTime != null && survivalTime > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0x3300F5D4), RoundedCornerShape(6.dp))
+                            .border(1.dp, Color(0x6600F5D4), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "⏱️ ${GameData.formatTimerPersian(survivalTime)} ثانیه",
+                            color = Color(0xFF00F5D4),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 Box(
                     modifier = Modifier
                         .background(Color(0x33FEE440), RoundedCornerShape(6.dp))
                         .border(1.dp, Color(0x66FEE440), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "🧠 تخمین IQ: ${GameData.toPersianDigits(details.fakeIQ)}",
+                        text = "🧠 IQ: ${GameData.toPersianDigits(details.fakeIQ)}",
                         color = Color(0xFFFEE440),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -313,6 +430,9 @@ fun DeathRageOverlay(
 @Composable
 fun StageWinOverlay(
     stageNum: Int,
+    timeTaken: Float = 0f,
+    bestTime: Float? = null,
+    isNewRecord: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -323,17 +443,17 @@ fun StageWinOverlay(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 420.dp)
-                .fillMaxWidth(0.8f)
+                .widthIn(max = 440.dp)
+                .fillMaxWidth(0.85f)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xF5090B16))
-                .border(2.5.dp, Color(0xFF00F5D4), RoundedCornerShape(18.dp))
+                .border(2.5.dp, if (isNewRecord) Color(0xFFFEE440) else Color(0xFF00F5D4), RoundedCornerShape(18.dp))
                 .shadow(24.dp, RoundedCornerShape(18.dp))
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "🎉🏆", fontSize = 42.sp)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = if (isNewRecord) "👑⚡🏆" else "🎉🏆", fontSize = 38.sp)
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "مرحله ${GameData.toPersianDigits(stageNum)} با موفقیت فتح شد!",
                 fontSize = 18.sp,
@@ -341,11 +461,76 @@ fun StageWinOverlay(
                 color = Color(0xFF00F5D4),
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(6.dp))
+
+            if (isNewRecord) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .background(Color(0x44FEE440), RoundedCornerShape(8.dp))
+                        .border(1.5.dp, Color(0xFFFEE440), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "⭐ رکورد شخصی جدید! (New Best Time!) ⭐",
+                        color = Color(0xFFFEE440),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Time & Personal Best Stats Card
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x77000000), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0x3300F5D4), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text = "⏱️ زمان ثبت شده:",
+                        fontSize = 11.sp,
+                        color = Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${GameData.formatTimerPersian(timeTaken)} ثانیه",
+                        fontSize = 15.sp,
+                        color = Color(0xFF00F5D4),
+                        fontWeight = FontWeight.Black
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "🏆 بهترین رکورد:",
+                        fontSize = 11.sp,
+                        color = Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (bestTime != null) {
+                            "${GameData.formatTimerPersian(bestTime)} ثانیه"
+                        } else {
+                            "${GameData.formatTimerPersian(timeTaken)} ثانیه"
+                        },
+                        fontSize = 15.sp,
+                        color = Color(0xFFFEE440),
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = "آماده مرحله بعدی با تله‌های شیطانی‌تر باشید...",
-                fontSize = 13.sp,
-                color = Color(0xFFF8FAFC),
+                fontSize = 12.sp,
+                color = Color(0xFFCBD5E1),
                 textAlign = TextAlign.Center
             )
         }

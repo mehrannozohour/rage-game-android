@@ -73,6 +73,24 @@ object GameData {
         return sb.toString()
     }
 
+    fun formatTimer(seconds: Float): String {
+        if (seconds < 0f) return "--:--"
+        val totalHundredths = (seconds * 100).toInt()
+        val sec = totalHundredths / 100
+        val hundredths = totalHundredths % 100
+        val mins = sec / 60
+        val remainingSec = sec % 60
+        return if (mins > 0) {
+            String.format("%02d:%02d.%02d", mins, remainingSec, hundredths)
+        } else {
+            String.format("%02d.%02d", remainingSec, hundredths)
+        }
+    }
+
+    fun formatTimerPersian(seconds: Float): String {
+        return toPersianDigits(formatTimer(seconds))
+    }
+
     val TAUNTS: Map<String, List<Taunt>> = mapOf(
         "elevator_laser" to listOf(
             Taunt("🤬⚡", "لیزر غافلگیرت کرد!", "لیزر به این گندگی تغییر ارتفاع داد و رفتی روش سوختی! واکنش سریع‌تری نشون بده!"),

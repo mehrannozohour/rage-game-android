@@ -3,8 +3,7 @@ package com.example.game
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,8 +42,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Permanent On-Screen Tactile Joystick + Action Buttons for "Rage" mobile gameplay.
- * The virtual joystick is permanently on-screen without requiring selection.
+ * High-performance, zero-lag touch controls for "Rage".
+ * Uses instant pointerInput tap detectors rather than nested Button composition to ensure immediate response without frame drops.
  */
 @Composable
 fun OnScreenGameControls(
@@ -58,11 +55,11 @@ fun OnScreenGameControls(
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
     ) {
-        // Left Side: Permanent Tactile Analog Joystick
+        // Left Side: Virtual Analog Joystick
         VirtualJoystick(
             onJump = onJump,
             onSlide = onSlide,
@@ -87,14 +84,14 @@ fun VirtualJoystick(
     onDash: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val maxRadiusPx = 110f
+    val maxRadiusPx = 100f
     var thumbOffsetX by remember { mutableFloatStateOf(0f) }
     var thumbOffsetY by remember { mutableFloatStateOf(0f) }
     var hasTriggeredDirection by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
-            .size(136.dp)
+            .size(130.dp)
             .clip(CircleShape)
             .background(
                 Brush.radialGradient(
@@ -124,19 +121,18 @@ fun VirtualJoystick(
                         thumbOffsetX = cos(angle) * clampedDist
                         thumbOffsetY = sin(angle) * clampedDist
 
-                        // Trigger actions based on stick deflection
-                        if (dist > 45f && !hasTriggeredDirection) {
-                            if (newY < -35f) {
+                        if (dist > 38f && !hasTriggeredDirection) {
+                            if (newY < -30f) {
                                 onJump()
                                 hasTriggeredDirection = true
-                            } else if (newY > 35f) {
+                            } else if (newY > 30f) {
                                 onSlide()
                                 hasTriggeredDirection = true
-                            } else if (newX > 35f) {
+                            } else if (newX > 30f) {
                                 onDash()
                                 hasTriggeredDirection = true
                             }
-                        } else if (dist < 25f) {
+                        } else if (dist < 20f) {
                             hasTriggeredDirection = false
                         }
                     },
@@ -158,12 +154,12 @@ fun VirtualJoystick(
         Box(
             modifier = Modifier
                 .width(2.dp)
-                .height(60.dp)
+                .height(56.dp)
                 .background(Color(0x3300F5D4))
         )
         Box(
             modifier = Modifier
-                .width(60.dp)
+                .width(56.dp)
                 .height(2.dp)
                 .background(Color(0x3300F5D4))
         )
@@ -172,21 +168,21 @@ fun VirtualJoystick(
         Text(
             text = "▲",
             color = Color(0x8800F5D4),
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
         )
         Text(
             text = "▼",
             color = Color(0x8800F5D4),
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
         )
         Text(
             text = "▶",
             color = Color(0x8800F5D4),
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
         )
@@ -195,7 +191,7 @@ fun VirtualJoystick(
         Box(
             modifier = Modifier
                 .offset { IntOffset(thumbOffsetX.roundToInt(), thumbOffsetY.roundToInt()) }
-                .size(54.dp)
+                .size(52.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
@@ -203,7 +199,7 @@ fun VirtualJoystick(
                     )
                 )
                 .border(2.dp, Color.White, CircleShape)
-                .shadow(8.dp, CircleShape)
+                .shadow(6.dp, CircleShape)
         )
     }
 }
@@ -221,39 +217,43 @@ fun ActionButtonsPad(
         verticalAlignment = Alignment.Bottom
     ) {
         // Dash Button
-        GameActionButton(
-            title = "شتاب",
-            subTitle = "DASH",
+        GameFastActionButton(
+            title = "DASH",
+            subTitle = "شتاب",
             color = Color(0xFFFF2A5F),
-            sizeDp = 58,
+            sizeDp = 62,
             onClick = onDash,
             testTag = "action_dash_button"
         )
 
         // Slide Button
-        GameActionButton(
-            title = "تکل",
-            subTitle = "SLIDE",
+        GameFastActionButton(
+            title = "SLIDE",
+            subTitle = "تکل",
             color = Color(0xFFFEE440),
-            sizeDp = 64,
+            sizeDp = 68,
             onClick = onSlide,
             testTag = "action_slide_button"
         )
 
         // Jump Button (Primary Large)
-        GameActionButton(
-            title = "پرش",
-            subTitle = "JUMP",
+        GameFastActionButton(
+            title = "JUMP",
+            subTitle = "پرش",
             color = Color(0xFF00F5D4),
-            sizeDp = 76,
+            sizeDp = 80,
             onClick = onJump,
             testTag = "action_jump_button"
         )
     }
 }
 
+/**
+ * Instant Zero-Lag Touch Button Component.
+ * Responds immediately on pointer down without gesture conflict or UI thread delay.
+ */
 @Composable
-fun GameActionButton(
+fun GameFastActionButton(
     title: String,
     subTitle: String,
     color: Color,
@@ -261,14 +261,7 @@ fun GameActionButton(
     onClick: () -> Unit,
     testTag: String
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    LaunchedEffect(isPressed) {
-        if (isPressed) {
-            onClick()
-        }
-    }
+    var isPressed by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -281,43 +274,39 @@ fun GameActionButton(
                 )
             )
             .border(2.5.dp, color, CircleShape)
-            .shadow(if (isPressed) 12.dp else 4.dp, CircleShape)
+            .shadow(if (isPressed) 10.dp else 4.dp, CircleShape)
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { onClick() },
-                    onDrag = { change, _ -> change.consume() }
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        onClick()
+                        tryAwaitRelease()
+                        isPressed = false
+                    }
                 )
             }
             .testTag(testTag),
         contentAlignment = Alignment.Center
     ) {
-        Button(
-            onClick = onClick,
-            interactionSource = interactionSource,
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = if (isPressed) Color(0xFF05060D) else color
-            ),
-            modifier = Modifier.fillMaxSize()
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(2.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = title,
-                    fontSize = (sizeDp * 0.22f).sp,
-                    fontWeight = FontWeight.Black,
-                    color = if (isPressed) Color.White else color
-                )
-                Text(
-                    text = subTitle,
-                    fontSize = (sizeDp * 0.14f).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isPressed) Color.White else Color(0xBBF8FAFC)
-                )
-            }
+            Text(
+                text = title,
+                fontSize = (sizeDp * 0.23f).sp,
+                fontWeight = FontWeight.Black,
+                color = if (isPressed) Color.White else color,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = subTitle,
+                fontSize = (sizeDp * 0.16f).sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isPressed) Color.White else Color(0xFFE2E8F0),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
