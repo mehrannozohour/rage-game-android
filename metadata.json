@@ -1,0 +1,6 @@
+{
+  "name": "Rage",
+  "description": "Retro parkour action platformer with traps, rage mechanics, entry menu, and on-screen joystick.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

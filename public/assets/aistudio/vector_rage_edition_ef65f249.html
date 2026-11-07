@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>وکتور پیکسلی: کابوس غیرقابل پیش‌بینی (Pixel Vector)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #05060d;
+            --pixel-cyan: #00f5d4;
+            --pixel-red: #ff2a5f;
+            --pixel-yellow: #fee440;
+            --pixel-purple: #9b5de5;
+        }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #05060d;
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            object-fit: fill;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: #080914;
+            touch-action: none;
+        }
+
+        .crt-scanlines {
+            background:
+                radial-gradient(circle at center, transparent 65%, rgba(0, 0, 0, 0.5) 100%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 100%, 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden bg-[#05060d]">
+
+    <!-- Pure Full-Screen Game Viewport Only -->
+    <canvas id="pixelCanvas" width="384" height="216" class="cursor-pointer"></canvas>
+    <div class="crt-scanlines fixed inset-0"></div>
+
+    <!-- Minimal Floating Corner Stage & Death Indicator -->
+    <div class="fixed top-3 right-4 flex items-center gap-2 pointer-events-none z-20 text-xs font-black">
+        <span id="hudStage" class="bg-black/75 border border-cyan-500/50 text-cyan-300 px-3 py-1 rounded-lg shadow-lg">
+            مرحله ۱ / ۱۰
+        </span>
+        <span id="hudDeaths" class="bg-black/75 border border-rose-500/50 text-rose-400 px-3 py-1 rounded-lg shadow-lg">
+            💀 ۰
+        </span>
+    </div>
+
+    <!-- Instant Rage Taunt Overlay on Death -->
+    <div id="deathBanner" class="pointer-events-none opacity-0 transition-all duration-150 transform scale-95 fixed inset-0 flex flex-col items-center justify-center p-4 z-30">
+        <div class="bg-[#090b16]/95 border-2 border-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.8)] px-5 py-4 rounded-xl text-center max-w-md w-full">
+            <div class="flex items-center justify-between text-[11px] font-black border-b border-rose-500/30 pb-1.5 mb-2">
+                <span id="deathStreakBadge" class="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-500/40">💀 بار ۱ که سوختی!</span>
+                <span id="deathIqBadge" class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40">🧠 تخمین IQ فعلی: ۴.۵</span>
+            </div>
+            <div id="deathEmoji" class="text-4xl mb-1 animate-bounce">⚡💀</div>
+            <div id="deathTitle" class="text-base sm:text-lg font-black text-rose-400 mb-1">تله غافلگیرت کرد!</div>
+            <div id="deathDesc" class="text-xs sm:text-sm font-bold text-slate-100 leading-relaxed">فکر کردی یه جعبه معمولیه؟ تیغ داشت!</div>
+            <div id="deathSubRoast" class="mt-2.5 bg-rose-950/60 border border-rose-500/40 rounded-lg px-3 py-1.5 text-xs text-amber-300 font-extrabold">
+                💬 پیام مامور: «کیبوردت رو نشکن، تقصیر انگشتای کُندته!»
+            </div>
+            <div class="mt-3 text-xs text-cyan-300 font-black animate-pulse">
+                [Space] یا کلیک کن تا دوباره بسوزی! ⚡
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**************************************************************
+         * 1. PERSIAN DIGITS & SARCASTIC TAUNT DATABASE
+         **************************************************************/
+        const toFa = (n) => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+        const lerp = (a, b, t) => a + (b - a) * t;
+
+        const TAUNTS = {
+            elevator_laser: [
+                { emoji: "🤬⚡", title: "کص‌کش مگه کوری دیدی لیز رفت تو کونت؟!", desc: "لیزر به این گندگی رو ندیدی با کله رفتی روش بسوزی؟ جمع کن بابا این بازی کردنتو!" },
+                { emoji: "🤡🔥", title: "نوب سگِ کص‌مغز!", desc: "یعنی یه کودکستانی هم می‌فهمید لیزر میاد پایین، تو چجوری رفتی جلو تا لیز بره تو کونت بسوزی؟!" },
+                { emoji: "💩⚡", title: "گند زدی از سَر تا پا!", desc: "با این فرمون بری تا سال دیگه هم رد نمی‌کنی، لیزر قشنگ رفته تو کونت داری می‌سوزی!" },
+                { emoji: "🧠🤏", title: "مغز تعطیل و عنتر!", desc: "لیزر بوق زد، چراغ زد، باز وایسادی تا لیز قشنگ بره تو کونت برشته‌ت کنه؟ درست بازی کن!" }
+            ],
+            mimic_crate: [
+                { emoji: "📦🤬", title: "از یه جعبه کتک خوردی کص‌خل؟!", desc: "خجالت بکش ناموساً! جعبه تیغ درآورد رفت تو کونت، برو غازچرونی!" },
+                { emoji: "🤮📦", title: "حالم از این بازی کردنت به هم خورد!", desc: "فکر کردی خیلی خفنی؟ جعبه پا درآورد تف کرد تو صورتت، لیز رفت تو کونت!" },
+                { emoji: "🤡🌵", title: "چه وضع بازی کردنه آخه کص‌خل؟!", desc: "صبر کن جعبه تیغش رو دربیاره بعد با صورت بپر روش، لیز رفت تو کونت بسوزی!" },
+                { emoji: "🗑️🏃‍♂️", title: "سطل زباله از تو بهتره!", desc: "بیا سیستم رو خاموش کن بخواب، اصلاً به درد بازی اکشن نمی‌خوری نوبِ سگِ کص‌کش!" }
+            ],
+            sudden_gap: [
+                { emoji: "🕳️🤬", title: "کوری مگه لیز رفت تو کونت؟!", desc: "پل شکست و مثل گونی پهن افتادی ته دره، جوری لیز رفت تو کونت که پشمات ریخت!" },
+                { emoji: "💩🦅", title: "پهن شدی کف آسفالت کص‌مغز!", desc: "با چه رویی می‌خوای ده مرحله رو رد کنی وقتی سر یه چاله‌ی دو متری لیز می‌ره تو کونت؟" },
+                { emoji: "🤦‍♂️💀", title: "آبرو هرچی گیمره بردی!", desc: "انگشتت فلجه مگه؟ دو بار بزن رو دکمه‌ی پرش تا لیز نره تو کونت بسوزی!" },
+                { emoji: "🤡🕳️", title: "باز رفتی ته چاه اسکل!", desc: "جاذبه‌ی زمین هم داره بهت فحش میده میگه این نوبِ کص‌کش رو باز انداختین پایین!" }
+            ],
+            crusher: [
+                { emoji: "🔨🤬", title: "له شدی مثل سوسک کص‌خل!", desc: "زیر دستگاه پرس دو تُنی فرش پهن کردی نشستی؟ بدو رد شو تا لیز نرفته تو کونت بسوزی!" },
+                { emoji: "🥞🤡", title: "کتلت پیکسلی تحویل بگیر!", desc: "واکنش‌هات در حد جنازه‌ست! پرس سقفی صد متر اونورتر داد می‌زد، تو باز وایسادی لیز رفت تو کونت!" },
+                { emoji: "🤕💩", title: "مغزت رو با گوشت‌کوب کوبیدن!", desc: "کلید جهش رو گذاشتم کپک بزنه؟ بزن در رو از زیر پرس تا لیز نره تو کونت!" },
+                { emoji: "🔨💥", title: "قشنگ پهن شدی کف زمین!", desc: "دستگاه زد و لیز قشنگ رفت تو کونت بسوزی، جمع کن بابا بساطتو!" }
+            ],
+            fake_exit: [
+                { emoji: "🏁🖕", title: "زرشک! فکر کردی بردی نوب سگ؟! 😂", desc: "دروازه خروج حالش ازت به هم خورد در رفت، لیز رفت تو کونت و قشنگ سوختی!" },
+                { emoji: "🤡🎉", title: "حقت بود بسوزی تا جوگیر نشی!", desc: "هنوز نرسیده نیشت باز شد، دروازه پرید عقب و لیز رفت تو کونت بسوزی!" },
+                { emoji: "🚪🤬", title: "دروازه گفت به کص‌کش راه نمیدم!", desc: "حتی در و دیوار بازی هم فهمیدن چقدر داغونی، فرار کردن تا لیز بره تو کونت!" }
+            ],
+            hunter: [
+                { emoji: "👮‍♂️🤬", title: "ماموره گرفت کرد تو کونت!", desc: "انقدر مثل فلج‌ها به در و دیوار گیر کردی تا ماموره رسید و باتوم برقی رو کرد تو کونت بسوزی!" },
+                { emoji: "🚓💩", title: "از مامور شکم‌گنده هم خوردی؟!", desc: "خیلی ضایعی به مولا! طرف با صد کیلو وزن بهت رسید و لیز رفت تو کونت!" },
+                { emoji: "⚡🤡", title: "درست بدو دیگه لعنتیِ کص‌خل!", desc: "گیر می‌کنی به جعبه‌ها بعد می‌گی چرا سوختم؟ خب بپر تا لیز نره تو کونت!" }
+            ],
+            spike_wall: [
+                { emoji: "🚀🤬", title: "با مخ رفتی تو دیوار کص‌خل!", desc: "پد سرعت رو که رد کردی باید تکل بزنی، نه اینکه مثل گاو بری تو لیزر تا بره تو کونت!" },
+                { emoji: "🧱🤡", title: "پیشونیت از فولاده مگه؟!", desc: "صد بار گفتم بعد پد سرعت بشین، مغزت ویندوز ۹۸ روشه تا لیز می‌ره تو کونت می‌سوزی!" },
+                { emoji: "💥💩", title: "ریدی با این بازی کردنت!", desc: "سرعتت رفت بالا کلاً پشمای مغزت ریخت رفتی تو دیوار تا لیز بره تو کونت بسوزی!" }
+            ]
+        };
+
+        const STREAK_ROASTS = [
+            "💬 مامور تعقیب: «کص‌کش درست بازی کن دیگه! خسته شدم از بس دیدم لیز رفت تو کونت سوختی!»",
+            "💬 سیستم هوش مصنوعی: «کیبوردت داره التماس می‌کنه، تو مال این حرفا نیستی، لیز رفته تو کونت!»",
+            "💬 گزارش آزمایشگاه: «حرص نخور کص‌خل، تقصیر دست‌های کج و کوله‌ته که لیز می‌ره تو کونت!»",
+            "💬 مامور تعقیب: «ناموساً چند بار می‌خوای سر یه تله بمیری و لیز بره تو کونت بسوزی؟!»",
+            "💬 سازنده بازی: «والا اگه یه گربه رو می‌ذاشتم رو کیبورد تا الان رد کرده بود، کص‌خل!»",
+            "💬 تله‌های پشت‌بام: «بچه‌ها بخندین، اون یارو نوبه دوباره اومد لیز رفت تو کونت سوخت!»",
+            "💬 سیستم ضد فشار: «فشار بخور کص‌کش تا بترکی! تا وقتی درست بازی نکنی همینه!»",
+            "💬 مامور تعقیب: «بیا این شوکر رو بگیر خودت بزن به خودت تا لیز قشنگ‌تر بره تو کونت!»",
+            "💬 رکورد جهانی: «تبریک! به عنوان سمی‌ترین و نوب‌ترین کص‌کش تاریخ ثبت شدی!»",
+            "💬 سازنده بازی: «داداش مانیتور رو نشکنی یه وقت؟ برو یه آب قند بخور، لیز رفت تو کونت!»"
+        ];
+
+        const PIXEL_LAUGH_BUBBLES = ["NOOB!", "HAHA!", "TRASH", "LOSER", "EZ XD"];
+
+        /**************************************************************
+         * 2. RETRO 8-BIT CHIPTUNE SYNTHESIZER
+         **************************************************************/
+        class ChiptuneAudio {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.loopId = null;
+                this.step = 0;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            startLoop() {
+                if (this.loopId) return;
+                const bassNotes = [110, 110, 130.81, 110, 146.83, 130.81, 98, 110];
+                this.loopId = setInterval(() => {
+                    if (this.muted || state.status !== 'playing') return;
+                    const note = bassNotes[this.step % bassNotes.length];
+                    this.beep(note, 'triangle', 0.11, 0.035);
+                    this.step++;
+                }, 170);
+            }
+            beep(freq, type, dur, vol = 0.09, slide = null) {
+                if (this.muted) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const o = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
+                    o.type = type;
+                    o.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    if (slide) o.frequency.exponentialRampToValueAtTime(slide, this.ctx.currentTime + dur);
+                    g.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+                    o.connect(g);
+                    g.connect(this.ctx.destination);
+                    o.start();
+                    o.stop(this.ctx.currentTime + dur);
+                } catch (e) {}
+            }
+            jump() { this.beep(240, 'square', 0.11, 0.09, 520); }
+            doubleJump() {
+                this.beep(360, 'square', 0.09, 0.09, 720);
+                setTimeout(() => this.beep(580, 'triangle', 0.1, 0.08, 920), 40);
+            }
+            vault() { this.beep(200, 'triangle', 0.12, 0.11, 460); }
+            slide() { this.beep(150, 'sawtooth', 0.11, 0.08, 65); }
+            dash() { this.beep(480, 'sawtooth', 0.14, 0.10, 140); }
+            glass() {
+                this.beep(980, 'square', 0.06, 0.1, 310);
+                setTimeout(() => this.beep(1320, 'sawtooth', 0.08, 0.09, 220), 30);
+            }
+            ambush() {
+                // Iconic retro "!" ambush alert sound
+                this.beep(780, 'square', 0.055, 0.11, 1040);
+                setTimeout(() => this.beep(1040, 'square', 0.075, 0.11, 1380), 50);
+            }
+            death() {
+                this.beep(180, 'sawtooth', 0.22, 0.14, 52);
+                setTimeout(() => this.beep(115, 'square', 0.28, 0.13, 38), 95);
+                // Mocking 8-bit "Ha-Ha-Ha!" laugh notes after dying
+                [520, 460, 390, 320].forEach((freq, idx) => {
+                    setTimeout(() => this.beep(freq, 'square', 0.08, 0.09, freq * 1.15), 260 + idx * 95);
+                });
+            }
+            win() {
+                [523.25, 659.25, 783.99, 1046.5].forEach((n, i) => {
+                    setTimeout(() => this.beep(n, 'square', 0.15, 0.11), i * 80);
+                });
+            }
+        }
+        const sfx = new ChiptuneAudio();
+
+        /**************************************************************
+         * 3. 10 UNPREDICTABLE "LEVEL DEVIL x VECTOR" PIXEL STAGES
+         * Internal Pixel Resolution: 384 x 216 (Ground baseline ~ 170)
+         **************************************************************/
+        const STAGES = [
+            {
+                id: 1,
+                title: "پشت‌بام به ظاهر ساده!",
+                warning: "از روی جعبه اول والت بزنید، شیشه را بشکنید، اما مراقب لیزر آخر باشید که لحظه آخر تغییر ارتفاع می‌دهد!",
+                speed: 2.35,
+                length: 1380,
+                floors: [
+                    { x: 0, w: 560, y: 170 },
+                    { x: 615, w: 850, y: 170 }
+                ],
+                traps: [
+                    { type: 'vault_box', x: 220, y: 170, w: 22, h: 20 },
+                    { type: 'glass', x: 370, y: 170, w: 8, h: 48 },
+                    { type: 'laser', x: 500, y: 170, mode: 'low', endMode: 'low', triggerDist: 0 },
+                    { type: 'overhang', x: 740, y: 170, w: 32, h: 42 },
+                    { type: 'elevator_laser', x: 960, y: 170, mode: 'high', endMode: 'low', triggerDist: 92 },
+                    { type: 'Sudden_bridge', x: 1130, y: 170, w: 68, triggerDist: 78 }
+                ],
+                fakeExit: false
+            },
+            {
+                id: 2,
+                title: "حمله جعبه‌های خائن",
+                warning: "بعضی جعبه‌ها وقتی نزدیکشان می‌شوید تیغ درمی‌آورند یا به سمتتان می‌دوند! با پرش بلند از رویشان بپرید.",
+                speed: 2.45,
+                length: 1480,
+                floors: [
+                    { x: 0, w: 680, y: 170 },
+                    { x: 740, w: 820, y: 170 }
+                ],
+                traps: [
+                    { type: 'vault_box', x: 200, y: 170, w: 22, h: 20 },
+                    { type: 'spike_mimic_box', x: 380, y: 170, w: 22, h: 20, triggerDist: 85 },
+                    { type: 'overhang', x: 550, y: 170, w: 34, h: 42 },
+                    { type: 'walking_box', x: 890, y: 170, w: 22, h: 20, triggerDist: 120, vx: -1.6 },
+                    { type: 'elevator_laser', x: 1110, y: 170, mode: 'low', endMode: 'high', triggerDist: 95 },
+                    { type: 'spike_mimic_box', x: 1290, y: 170, w: 22, h: 20, triggerDist: 85 }
+                ],
+                fakeExit: false
+            },
+            {
+                id: 3,
+                title: "سقف و کف دروغگو",
+                warning: "پد سرعت سبز شما را به سمت دیوار لیزری پرتاب می‌کند! بلافاصله بعد از پد کلید S (تکل) را نگه دارید.",
+                speed: 2.55,
+                length: 1560,
+                floors: [
+                    { x: 0, w: 520, y: 170 },
+                    { x: 580, w: 520, y: 164 },
+                    { x: 1160, w: 500, y: 170 }
+                ],
+                traps: [
+                    { type: 'boost_pad', x: 230, y: 170, w: 28 },
+                    { type: 'overhang', x: 355, y: 170, w: 36, h: 42 },
+                    { type: 'Sudden_bridge', x: 690, y: 164, w: 72, triggerDist: 82 },
+                    { type: 'crusher', x: 890, y: 164, w: 28, h: 36, triggerDist: 88 },
+                    { type: 'elevator_laser', x: 1040, y: 164, mode: 'high', endMode: 'low', triggerDist: 95 },
+                    { type: 'walking_box', x: 1350, y: 170, w: 22, h: 20, triggerDist: 125, vx: -1.8 }
+                ],
+                fakeExit: false
+            },
+            {
+                id: 4,
+                title: "دروازه خروج فراری!",
+                warning: "وقتی به دروازه سبز آخر مرحله می‌رسید، جشن نگیرید! دروازه فرار می‌کند و یک لیزر مخفی ظاهر می‌شود!",
+                speed: 2.6,
+                length: 1520,
+                floors: [
+                    { x: 0, w: 820, y: 170 },
+                    { x: 885, w: 850, y: 170 }
+                ],
+                traps: [
+                    { type: 'glass', x: 220, y: 170, w: 8, h: 48 },
+                    { type: 'elevator_laser', x: 390, y: 170, mode: 'high', endMode: 'low', triggerDist: 95 },
+                    { type: 'spike_mimic_box', x: 580, y: 170, w: 22, h: 20, triggerDist: 88 },
+                    { type: 'Sudden_bridge', x: 720, y: 170, w: 70, triggerDist: 85 },
+                    { type: 'crusher', x: 1040, y: 170, w: 28, h: 36, triggerDist: 90 },
+                    { type: 'elevator_laser', x: 1240, y: 170, mode: 'low', endMode: 'high', triggerDist: 95 }
+                ],
+                fakeExit: true
+            },
+            {
+                id: 5,
+                title: "پنجره فولادی و پرس سقفی",
+                warning: "همه شیشه‌ها شکستنی نیستند! بعضی پنجره‌ها لحظه آخر تبدیل به دیوار فولادی می‌شوند و باید از رویشان بپرید!",
+                speed: 2.68,
+                length: 1650,
+                floors: [
+                    { x: 0, w: 740, y: 170 },
+                    { x: 805, w: 960, y: 170 }
+                ],
+                traps: [
+                    { type: 'glass', x: 230, y: 170, w: 8, h: 48 },
+                    { type: 'fake_glass', x: 430, y: 170, w: 12, h: 30, triggerDist: 90 },
+                    { type: 'overhang', x: 610, y: 170, w: 34, h: 42 },
+                    { type: 'boost_pad', x: 890, y: 170, w: 28 },
+                    { type: 'elevator_laser', x: 1035, y: 170, mode: 'low', endMode: 'high', triggerDist: 105 },
+                    { type: 'crusher', x: 1230, y: 170, w: 28, h: 36, triggerDist: 92 },
+                    { type: 'walking_box', x: 1450, y: 170, w: 22, h: 20, triggerDist: 130, vx: -1.9 }
+                ],
+                fakeExit: false
+            },
+            {
+                id: 6,
+                title: "آسانسور لیزرهای دوقلو",
+                warning: "دو لیزر پشت سر هم که یکی بالا می‌رود و دیگری پایین می‌آید! از سقوط سریع در هوا (کلید S) استفاده کنید.",
+                speed: 2.75,
+                length: 1720,
+                floors: [
+                    { x: 0, w: 640, y: 170 },
+                    { x: 705, w: 540, y: 162 },
+                    { x: 1310, w: 520, y: 170 }
+                ],
+                traps: [
+                    { type: 'elevator_laser', x: 250, y: 170, mode: 'high', endMode: 'low', triggerDist: 96 },
+                    { type: 'elevator_laser', x: 430, y: 170, mode: 'low', endMode: 'high', triggerDist: 96 },
+                    { type: 'Sudden_bridge', x: 820, y: 162, w: 74, triggerDist: 86 },
+                    { type: 'spike_mimic_box', x: 1020, y: 162, w: 22, h: 20, triggerDist: 90 },
+                    { type: 'fake_glass', x: 1180, y: 162, w: 12, h: 30, triggerDist: 92 },
+                    { type: 'elevator_laser', x: 1490, y: 170, mode: 'high', endMode: 'low', triggerDist: 98 }
+                ],
+                fakeExit: false
+            },
+            {
+                id: 7,
+                title: "کارخانه پرس و شوکر",
+                warning: "پرس‌های سقفی و جعبه‌های متحرک همزمان حمله می‌کنند! مامور امنیتی هم با سرعت بالاتر دنبالتان می‌دود.",
+                speed: 2.82,
+                length: 1800,
+                floors: [
+                    { x: 0, w: 860, y: 170 },
+                    { x: 930, w: 980, y: 170 }
+                ],
+                traps: [
+                    { type: 'crusher', x: 240, y: 170, w: 28, h: 36, triggerDist: 92 },
+                    { type: 'walking_box', x: 460, y: 170, w: 22, h: 20, triggerDist: 130, vx: -1.9 },
+                    { type: 'boost_pad', x: 620, y: 170, w: 28 },
+                    { type: 'overhang', x: 755, y: 170, w: 36, h: 42 },
+                    { type: 'Sudden_bridge', x: 1070, y: 170, w: 76, triggerDist: 88 },
+                    { type: 'elevator_laser', x: 1290, y: 170, mode: 'high', endMode: 'low', triggerDist: 98 },
+                    { type: 'crusher', x: 1490, y: 170, w: 28, h: 36, triggerDist: 92 }
+                ],
+                fakeExit: true
+            },
+            {
+                id: 8,
+                title: "پشت‌بام روان‌پریش",
+                warning: "هیچ الگوی ثابتی وجود ندارد! به علامت تعجب قرمز (!) بالای تله‌ها دقت کنید و فوری تصمیم بگیرید.",
+                speed: 2.88,
+                length: 1880,
+                floors: [
+                    { x: 0, w: 580, y: 170 },
+                    { x: 650, w: 620, y: 165 },
+                    { x: 1340, w: 680, y: 170 }
+                ],
+                traps: [
+                    { type: 'spike_mimic_box', x: 220, y: 170, w: 22, h: 20, triggerDist: 90 },
+                    { type: 'elevator_laser', x: 410, y: 170, mode: 'low', endMode: 'high', triggerDist: 98 },
+                    { type: 'fake_glass', x: 770, y: 165, w: 12, h: 30, triggerDist: 92 },
+                    { type: 'walking_box', x: 980, y: 165, w: 22, h: 20, triggerDist: 135, vx: -2.0 },
+                    { type: 'Sudden_bridge', x: 1140, y: 165, w: 76, triggerDist: 88 },
+                    { type: 'boost_pad', x: 1460, y: 170, w: 28 },
+                    { type: 'overhang', x: 1600, y: 170, w: 36, h: 42 },
+                    { type: 'elevator_laser', x: 1760, y: 170, mode: 'high', endMode: 'low', triggerDist: 98 }
+                ],
+                fakeExit: false
+            },
+            {
+                id: 9,
+                title: "بزرگراه تله‌های زنجیره‌ای",
+                warning: "سرعت بسیار بالاست! ترکیب پل‌های ریزشی، جعبه‌های دونده و دروازه خروج فراری!",
+                speed: 2.95,
+                length: 1960,
+                floors: [
+                    { x: 0, w: 720, y: 170 },
+                    { x: 790, w: 620, y: 164 },
+                    { x: 1480, w: 720, y: 170 }
+                ],
+                traps: [
+                    { type: 'boost_pad', x: 210, y: 170, w: 28 },
+                    { type: 'elevator_laser', x: 360, y: 170, mode: 'low', endMode: 'high', triggerDist: 105 },
+                    { type: 'Sudden_bridge', x: 540, y: 170, w: 76, triggerDist: 90 },
+                    { type: 'crusher', x: 910, y: 164, w: 28, h: 36, triggerDist: 95 },
+                    { type: 'spike_mimic_box', x: 1110, y: 164, w: 22, h: 20, triggerDist: 92 },
+                    { type: 'walking_box', x: 1310, y: 164, w: 22, h: 20, triggerDist: 135, vx: -2.1 },
+                    { type: 'fake_glass', x: 1640, y: 170, w: 12, h: 30, triggerDist: 95 },
+                    { type: 'elevator_laser', x: 1820, y: 170, mode: 'high', endMode: 'low', triggerDist: 100 }
+                ],
+                fakeExit: true
+            },
+            {
+                id: 10,
+                title: "فینال غیرممکن (IQ 999)",
+                warning: "مرحله دهم! تمام تله‌های بازی دست به یکی کرده‌اند تا نگذارند زنده به دروازه آزادی برسید!",
+                speed: 3.05,
+                length: 2100,
+                floors: [
+                    { x: 0, w: 680, y: 170 },
+                    { x: 755, w: 680, y: 165 },
+                    { x: 1510, w: 840, y: 170 }
+                ],
+                traps: [
+                    { type: 'spike_mimic_box', x: 210, y: 170, w: 22, h: 20, triggerDist: 92 },
+                    { type: 'elevator_laser', x: 390, y: 170, mode: 'high', endMode: 'low', triggerDist: 100 },
+                    { type: 'Sudden_bridge', x: 540, y: 170, w: 78, triggerDist: 90 },
+                    { type: 'boost_pad', x: 840, y: 165, w: 28 },
+                    { type: 'overhang', x: 985, y: 165, w: 38, h: 42 },
+                    { type: 'crusher', x: 1160, y: 165, w: 28, h: 36, triggerDist: 95 },
+                    { type: 'walking_box', x: 1350, y: 165, w: 22, h: 20, triggerDist: 140, vx: -2.2 },
+                    { type: 'fake_glass', x: 1640, y: 170, w: 12, h: 30, triggerDist: 95 },
+                    { type: 'elevator_laser', x: 1810, y: 170, mode: 'low', endMode: 'high', triggerDist: 102 },
+                    { type: 'elevator_laser', x: 1960, y: 170, mode: 'high', endMode: 'low', triggerDist: 102 }
+                ],
+                fakeExit: true
+            }
+        ];
+
+        /**************************************************************
+         * 4. PIXEL ENGINE STATE & SPRITE MATRICES
+         **************************************************************/
+        const canvas = document.getElementById('pixelCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        const W = canvas.width;  // 384
+        const H = canvas.height; // 216
+
+        const state = {
+            stageIdx: 0,
+            status: 'playing', // 'playing', 'dead', 'won'
+            deathTimer: 0,
+            totalDeaths: 0,
+            stageDeaths: 0,
+            ragePct: 5,
+            slowMoAssist: false,
+            radarSpoiler: false,
+            timeScale: 1.0,
+            camX: 0,
+            shake: 0,
+            tick: 0,
+            lastTauntTitle: '',
+            laughBubble: 'HAHA!'
+        };
+
+        const HERO_SKIN = {
+            scarf1: '#ff2a5f',
+            scarf2: '#be123c',
+            visor: '#00f5d4',
+            suit: '#1e293b',
+            trim: '#00bbf9',
+            skin: '#fbd38d',
+            shoes: '#ff2a5f'
+        };
+
+        let runner = {};
+        let hunter = {};
+        let floors = [];
+        let traps = [];
+        let exitGate = { x: 0, y: 170, faked: false };
+        let particles = [];
+        let scarfPixels = [];
+        let bgSkyscrapers = [];
+        let starsCleared = new Array(STAGES.length).fill(0);
+
+        // Crisp Integer Pixel Helper
+        function pRect(x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+        }
+
+        function initPixelCity() {
+            bgSkyscrapers = [];
+            for (let layer = 0; layer < 2; layer++) {
+                const arr = [];
+                let cx = 0;
+                while (cx < 1200) {
+                    const bw = 26 + Math.floor(Math.random() * 36);
+                    const bh = 55 + Math.floor(Math.random() * 85) + layer * 20;
+                    arr.push({
+                        x: cx,
+                        w: bw,
+                        h: bh,
+                        antenna: Math.random() < 0.4,
+                        neon: Math.random() < 0.35 ? (Math.random() < 0.5 ? '#00f5d4' : '#ff2a5f') : null
+                    });
+                    cx += bw + 6 + Math.floor(Math.random() * 12);
+                }
+                bgSkyscrapers.push(arr);
+            }
+        }
+
+        function loadStage(idx, resetStageDeaths = false) {
+            state.stageIdx = idx;
+            state.status = 'playing';
+            state.deathTimer = 0;
+            state.shake = 0;
+            state.timeScale = state.slowMoAssist ? 0.58 : 1.0;
+            if (resetStageDeaths) state.stageDeaths = 0;
+
+            const stg = STAGES[idx];
+            floors = stg.floors.map(f => ({ ...f }));
+            traps = stg.traps.map(t => ({
+                ...t,
+                origX: t.x,
+                triggered: false,
+                currentMode: t.mode || 'low',
+                broken: false,
+                dropY: 0,
+                alertTimer: 0
+            }));
+
+            exitGate = {
+                x: stg.length,
+                y: stg.floors[stg.floors.length - 1].y,
+                canFake: stg.fakeExit,
+                faked: false
+            };
+
+            runner = {
+                x: 64,
+                y: stg.floors[0].y,
+                vx: stg.speed,
+                baseSpeed: stg.speed,
+                vy: 0,
+                onGround: true,
+                jumpsLeft: 2,
+                pose: 'run', // 'run', 'jump', 'slide', 'vault', 'dash'
+                slideTimer: 0,
+                vaultTimer: 0,
+                dashTimer: 0,
+                dashCooldown: 0,
+                stumbleTimer: 0,
+                frame: 0
+            };
+
+            hunter = {
+                x: 12,
+                y: stg.floors[0].y,
+                frame: 0
+            };
+
+            scarfPixels = [];
+            particles = [];
+            state.camX = runner.x - 85;
+
+            hideDeathBanner();
+            updateHUD();
+        }
+
+        function spawnPixelBurst(wx, wy, color, count = 18) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const s = 0.8 + Math.random() * 3.2;
+                particles.push({
+                    x: wx,
+                    y: wy,
+                    vx: Math.cos(a) * s,
+                    vy: Math.sin(a) * s - 1.0,
+                    size: Math.random() < 0.5 ? 2 : 3,
+                    color,
+                    life: 18 + Math.floor(Math.random() * 16)
+                });
+            }
+        }
+
+        function killPlayer(trapReason) {
+            if (state.status !== 'playing') return;
+            state.status = 'dead';
+            state.deathTimer = 45;
+            state.totalDeaths++;
+            state.stageDeaths++;
+            state.ragePct = clamp(state.ragePct + 14, 5, 100);
+            state.shake = 9;
+
+            // Launch ragdoll character knockback on death
+            runner.vy = -3.8;
+            runner.vx = -1.4;
+
+            sfx.death();
+            // Explode sparks around character
+            spawnPixelBurst(runner.x, runner.y - 12, '#00f5d4', 18);
+            spawnPixelBurst(runner.x, runner.y - 12, '#ff2a5f', 16);
+            spawnPixelBurst(runner.x, runner.y - 12, '#fee440', 12);
+
+            updateHUD();
+
+            const pool = TAUNTS[trapReason] || TAUNTS.elevator_laser;
+            let pick = pool[Math.floor(Math.random() * pool.length)];
+            if (pool.length > 1 && pick.title === state.lastTauntTitle) {
+                pick = pool[(pool.indexOf(pick) + 1) % pool.length];
+            }
+            state.lastTauntTitle = pick.title;
+            state.laughBubble = PIXEL_LAUGH_BUBBLES[state.totalDeaths % PIXEL_LAUGH_BUBBLES.length];
+
+            const roastIdx = Math.min(STREAK_ROASTS.length - 1, Math.floor((state.stageDeaths - 1) % STREAK_ROASTS.length));
+            const subRoast = STREAK_ROASTS[roastIdx];
+            const fakeIQ = Math.max(-50, (5 - state.totalDeaths * 0.7)).toFixed(1);
+
+            showDeathBanner(pick.emoji, pick.title, pick.desc, subRoast, fakeIQ);
+        }
+
+        function showDeathBanner(emoji, title, desc, subRoast, fakeIQ) {
+            document.getElementById('deathEmoji').textContent = emoji;
+            document.getElementById('deathTitle').textContent = title;
+            document.getElementById('deathDesc').textContent = desc;
+            document.getElementById('deathSubRoast').textContent = subRoast;
+            document.getElementById('deathStreakBadge').textContent = `💀 بار ${toFa(state.stageDeaths)} که تو این مرحله سوختی!`;
+            document.getElementById('deathIqBadge').textContent = `🧠 تخمین IQ فعلی: ${toFa(fakeIQ)}`;
+            const b = document.getElementById('deathBanner');
+            b.classList.remove('opacity-0', 'scale-95');
+            b.classList.add('opacity-100', 'scale-100');
+        }
+
+        function hideDeathBanner() {
+            const b = document.getElementById('deathBanner');
+            b.classList.remove('opacity-100', 'scale-100');
+            b.classList.add('opacity-0', 'scale-95');
+        }
+
+        /**************************************************************
+         * 5. PLAYER PARKOUR CONTROLS (JUMP, VAULT, SLIDE, DASH)
+         **************************************************************/
+        function doJump() {
+            sfx.init();
+            sfx.startLoop();
+
+            if (state.status === 'dead') {
+                loadStage(state.stageIdx, false);
+                return;
+            }
+            if (state.status !== 'playing') return;
+
+            // Check if near a normal vault_box for Parkour Kong Vault
+            const nearBox = traps.find(t =>
+                t.type === 'vault_box' &&
+                t.x - runner.x > -6 &&
+                t.x - runner.x < 32 &&
+                Math.abs(runner.y - t.y) < 14
+            );
+
+            if (nearBox && runner.onGround) {
+                runner.pose = 'vault';
+                runner.vaultTimer = 14;
+                runner.vy = -4.6;
+                runner.vx = runner.baseSpeed + 1.1;
+                runner.onGround = false;
+                runner.jumpsLeft = 1;
+                sfx.vault();
+                spawnPixelBurst(runner.x, runner.y - 8, '#00f5d4', 8);
+                return;
+            }
+
+            if (runner.onGround) {
+                runner.vy = -5.4;
+                runner.onGround = false;
+                runner.jumpsLeft = 1;
+                runner.pose = 'jump';
+                runner.slideTimer = 0;
+                sfx.jump();
+                spawnPixelBurst(runner.x, runner.y, '#00bbf9', 6);
+            } else if (runner.jumpsLeft > 0) {
+                runner.vy = -4.9;
+                runner.jumpsLeft = 0;
+                runner.pose = 'jump';
+                runner.slideTimer = 0;
+                sfx.doubleJump();
+                spawnPixelBurst(runner.x, runner.y - 6, '#00f5d4', 10);
+            }
+        }
+
+        function doSlide() {
+            sfx.init();
+            sfx.startLoop();
+
+            if (state.status === 'dead') {
+                loadStage(state.stageIdx, false);
+                return;
+            }
+            if (state.status !== 'playing') return;
+
+            if (!runner.onGround) {
+                // Fast-fall slam in mid-air to dodge sudden high traps!
+                runner.vy = Math.max(runner.vy, 6.2);
+                runner.slideTimer = 26;
+                runner.pose = 'slide';
+                sfx.slide();
+            } else {
+                runner.slideTimer = 28;
+                runner.pose = 'slide';
+                sfx.slide();
+                spawnPixelBurst(runner.x, runner.y, '#fee440', 5);
+            }
+        }
+
+        function doDash() {
+            sfx.init();
+            sfx.startLoop();
+
+            if (state.status === 'dead') {
+                loadStage(state.stageIdx, false);
+                return;
+            }
+            if (state.status !== 'playing' || runner.dashCooldown > 0) return;
+
+            runner.dashTimer = 12;
+            runner.dashCooldown = 48;
+            runner.vx = runner.baseSpeed + 2.4;
+            runner.vy = Math.min(runner.vy, 0);
+            runner.pose = 'dash';
+            sfx.dash();
+            spawnPixelBurst(runner.x, runner.y - 10, '#fee440', 12);
+        }
+
+        /**************************************************************
+         * 6. PHYSICS & LEVEL DEVIL AMBUSH TRAP LOGIC
+         **************************************************************/
+        function getGroundAt(wx) {
+            // Check sudden bridges first
+            for (const t of traps) {
+                if (t.type === 'Sudden_bridge' && wx >= t.x && wx <= t.x + t.w) {
+                    if (t.dropY > 18) return null; // Dropped out!
+                    return t.y + t.dropY;
+                }
+            }
+            for (const f of floors) {
+                if (wx >= f.x && wx <= f.x + f.w) {
+                    return f.y;
+                }
+            }
+            return null;
+        }
+
+        function updateGame() {
+            state.tick++;
+            const dt = state.timeScale;
+
+            // Update Particles even when dead
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 0.18 * dt;
+                p.life -= dt;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            if (state.status === 'dead') {
+                if (state.deathTimer > 0) state.deathTimer--;
+                if (runner.y < H - 18) {
+                    runner.x += runner.vx * 0.5;
+                    runner.y += runner.vy * 0.6;
+                    runner.vy += 0.25;
+                }
+                return;
+            }
+
+            if (state.status !== 'playing') return;
+
+            // Runner timers
+            if (runner.dashCooldown > 0) runner.dashCooldown -= dt;
+            if (runner.dashTimer > 0) {
+                runner.dashTimer -= dt;
+            } else {
+                runner.vx = lerp(runner.vx, runner.baseSpeed, 0.1 * dt);
+            }
+
+            if (runner.stumbleTimer > 0) {
+                runner.stumbleTimer -= dt;
+                runner.vx = runner.baseSpeed * 0.45;
+            }
+
+            if (runner.slideTimer > 0) {
+                runner.slideTimer -= dt;
+                if (runner.slideTimer <= 0 && runner.onGround) runner.pose = 'run';
+            }
+
+            if (runner.vaultTimer > 0) {
+                runner.vaultTimer -= dt;
+                if (runner.vaultTimer <= 0 && !runner.onGround) runner.pose = 'jump';
+            }
+
+            // Move Runner
+            const prevY = runner.y;
+            runner.x += runner.vx * dt;
+            runner.y += runner.vy * dt;
+            runner.vy += 0.28 * dt; // Crisp pixel gravity
+
+            const gy = getGroundAt(runner.x);
+            if (gy !== null && prevY <= gy + 7 && runner.y >= gy && runner.vy >= 0) {
+                runner.y = gy;
+                runner.vy = 0;
+                if (!runner.onGround) {
+                    runner.onGround = true;
+                    runner.jumpsLeft = 2;
+                    if (runner.slideTimer <= 0) runner.pose = 'run';
+                }
+            } else if (gy === null || runner.y < gy) {
+                runner.onGround = false;
+            }
+
+            if (runner.y > H + 16) {
+                killPlayer('sudden_gap');
+                return;
+            }
+
+            // Pixel Scarf Trail
+            runner.frame += runner.vx * 0.12 * dt;
+            scarfPixels.unshift({
+                x: runner.x - 3,
+                y: runner.y - (runner.pose === 'slide' ? 8 : 19)
+            });
+            if (scarfPixels.length > 10) scarfPixels.pop();
+
+            // Chaser Agent (Hunter) AI
+            const targetDist = runner.stumbleTimer > 0 ? 14 : 56;
+            hunter.x = lerp(hunter.x, runner.x - targetDist, (runner.stumbleTimer > 0 ? 0.09 : 0.045) * dt);
+            const hgy = getGroundAt(hunter.x);
+            hunter.y = hgy !== null ? lerp(hunter.y, hgy, 0.3) : runner.y;
+            hunter.frame += runner.vx * 0.12 * dt;
+
+            if (hunter.x >= runner.x - 9) {
+                killPlayer('hunter');
+                return;
+            }
+
+            // Runner Hitbox
+            const rH = runner.pose === 'slide' ? 10 : 22;
+            const rTop = runner.y - rH;
+
+            // Process Unpredictable Traps
+            for (const t of traps) {
+                if (t.alertTimer > 0) t.alertTimer -= dt;
+                const dist = t.x - runner.x;
+
+                // 1. Elevator Laser (Bait & Switch)
+                if (t.type === 'elevator_laser' && !t.triggered && dist < t.triggerDist && dist > 10) {
+                    t.triggered = true;
+                    t.currentMode = t.endMode;
+                    t.alertTimer = 28;
+                    sfx.ambush();
+                    spawnPixelBurst(t.x, t.y - 24, '#ff2a5f', 10);
+                }
+
+                // 2. Spike Mimic Box (Pops deadly spikes when close!)
+                if (t.type === 'spike_mimic_box' && !t.triggered && dist < t.triggerDist && dist > 5) {
+                    t.triggered = true;
+                    t.alertTimer = 28;
+                    sfx.ambush();
+                    spawnPixelBurst(t.x + 10, t.y - 22, '#fee440', 8);
+                }
+
+                // 3. Walking Box (Sprouts legs and charges at player!)
+                if (t.type === 'walking_box') {
+                    if (!t.triggered && dist < t.triggerDist) {
+                        t.triggered = true;
+                        t.alertTimer = 28;
+                        sfx.ambush();
+                    }
+                    if (t.triggered && runner.x < t.x + 40) {
+                        t.x += (t.vx || -1.6) * dt;
+                    }
+                }
+
+                // 4. Sudden Dropping Bridge
+                if (t.type === 'Sudden_bridge') {
+                    if (!t.triggered && dist < t.triggerDist) {
+                        t.triggered = true;
+                        t.alertTimer = 28;
+                        sfx.ambush();
+                    }
+                    if (t.triggered) {
+                        t.dropY += 1.65 * dt;
+                    }
+                }
+
+                // 5. Ceiling Crusher
+                if (t.type === 'crusher') {
+                    if (!t.triggered && dist < t.triggerDist) {
+                        t.triggered = true;
+                        t.alertTimer = 28;
+                        sfx.ambush();
+                    }
+                    if (t.triggered && t.dropY < 34) {
+                        t.dropY = Math.min(34, t.dropY + 2.8 * dt);
+                    }
+                }
+
+                // 6. Fake Glass (Turns into solid steel barricade!)
+                if (t.type === 'fake_glass' && !t.triggered && dist < t.triggerDist) {
+                    t.triggered = true;
+                    t.alertTimer = 28;
+                    sfx.ambush();
+                    spawnPixelBurst(t.x, t.y - 16, '#94a3b8', 8);
+                }
+
+                // --- COLLISION CHECKS ---
+                if (t.type === 'vault_box') {
+                    if (Math.abs(runner.x - (t.x + t.w / 2)) < t.w / 2 + 5 && runner.y > t.y - t.h + 4) {
+                        if (runner.vy < 0 || runner.pose === 'vault' || runner.pose === 'dash') {
+                            runner.y = t.y - t.h;
+                            runner.vy = -3.8;
+                            runner.pose = 'vault';
+                            sfx.vault();
+                        } else {
+                            // Stumble! Hunter catches up!
+                            runner.x = t.x - 6;
+                            runner.vy = -2.2;
+                            runner.stumbleTimer = 32;
+                            state.shake = 4;
+                        }
+                    }
+                } else if (t.type === 'spike_mimic_box' || t.type === 'walking_box') {
+                    if (Math.abs(runner.x - (t.x + t.w / 2)) < t.w / 2 + 4 && runner.y > t.y - t.h - 5) {
+                        killPlayer('mimic_crate');
+                        return;
+                    }
+                } else if (t.type === 'glass' && !t.broken) {
+                    if (Math.abs(runner.x - t.x) < 10 && runner.y >= t.y - t.h) {
+                        t.broken = true;
+                        sfx.glass();
+                        spawnPixelBurst(t.x, t.y - 20, '#90e0ef', 16);
+                        state.shake = 3;
+                    }
+                } else if (t.type === 'fake_glass') {
+                    if (Math.abs(runner.x - (t.x + t.w / 2)) < t.w / 2 + 4 && runner.y > t.y - t.h + 2) {
+                        killPlayer('mimic_crate');
+                        return;
+                    }
+                } else if (t.type === 'boost_pad') {
+                    if (!t.triggered && Math.abs(runner.x - (t.x + t.w / 2)) < t.w / 2 && Math.abs(runner.y - t.y) < 8) {
+                        t.triggered = true;
+                        runner.vx = runner.baseSpeed + 2.6;
+                        runner.dashTimer = 18;
+                        sfx.dash();
+                        spawnPixelBurst(runner.x, runner.y, '#00f5d4', 12);
+                    }
+                } else if (t.type === 'overhang') {
+                    // Low ceiling overhang: requires SLIDE
+                    if (runner.x + 4 > t.x && runner.x - 4 < t.x + t.w) {
+                        const bottomEdge = t.y - 14;
+                        const topEdge = t.y - t.h - 14;
+                        if (rTop < bottomEdge && runner.y > topEdge) {
+                            killPlayer('spike_wall');
+                            return;
+                        }
+                    }
+                } else if (t.type === 'crusher') {
+                    if (runner.x + 4 > t.x && runner.x - 4 < t.x + t.w) {
+                        const crusherBottom = (t.y - 52) + t.dropY;
+                        if (rTop < crusherBottom) {
+                            killPlayer('crusher');
+                            return;
+                        }
+                    }
+                } else if (t.type === 'laser' || t.type === 'elevator_laser') {
+                    const mode = t.type === 'laser' ? t.mode : t.currentMode;
+                    if (Math.abs(runner.x - t.x) < 6) {
+                        if (mode === 'low') {
+                            if (runner.y > t.y - 22) {
+                                killPlayer('elevator_laser');
+                                return;
+                            }
+                        } else {
+                            // High laser: requires SLIDE (rH == 10)
+                            if (rTop < t.y - 13 && runner.y > t.y - 45) {
+                                killPlayer('elevator_laser');
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fake Exit Gate Troll Check!
+            if (exitGate.canFake && !exitGate.faked && exitGate.x - runner.x < 55) {
+                exitGate.faked = true;
+                exitGate.x += 115; // Gate teleports further back!
+                // Spawn a surprise low laser right in front of player!
+                traps.push({
+                    type: 'laser',
+                    x: runner.x + 48,
+                    y: exitGate.y,
+                    mode: 'low',
+                    alertTimer: 30
+                });
+                sfx.ambush();
+                spawnPixelBurst(exitGate.x - 115, exitGate.y - 20, '#00f5d4', 16);
+            }
+
+            // Stage Clear Check
+            if (runner.x >= exitGate.x) {
+                handleStageWin();
+            }
+
+            state.camX = lerp(state.camX, runner.x - 90, 0.22);
+            updateProgressUI();
+        }
+
+        /**************************************************************
+         * 7. TRUE 16-BIT PIXEL ART CHARACTER & WORLD RENDERER
+         **************************************************************/
+        function drawPixelCharacter(wx, wy, isHunter = false) {
+            const sx = Math.round(wx - state.camX);
+            const sy = Math.round(wy);
+            const skin = HERO_SKIN;
+
+            // 1. Dead / Electrocuted Skeleton Flash Ragdoll Pose
+            if (!isHunter && state.status === 'dead') {
+                const isShockFlash = state.deathTimer > 12 && (state.tick % 4 < 2);
+                const boneCol = isShockFlash ? '#ffffff' : '#00f5d4';
+                const outCol = isShockFlash ? '#ff2a5f' : '#0f172a';
+
+                // Zapped halo
+                pRect(sx - 11, sy - 16, 22, 14, outCol);
+                // Pixel Skull
+                pRect(sx - 9, sy - 14, 7, 7, boneCol);
+                pRect(sx - 8, sy - 12, 2, 2, '#090b16'); // X eye
+                pRect(sx - 4, sy - 12, 2, 2, '#090b16'); // X eye
+                // Ribcage & Spine horizontal
+                pRect(sx - 1, sy - 12, 8, 5, boneCol);
+                pRect(sx + 1, sy - 12, 1, 5, outCol);
+                pRect(sx + 4, sy - 12, 1, 5, outCol);
+                // Flailing pixel limbs
+                pRect(sx - 7, sy - 6, 4, 3, boneCol);
+                pRect(sx + 7, sy - 14, 4, 3, boneCol);
+                return;
+            }
+
+            // 2. Flowing Pixel Scarf / Tie / Energy Trail for Hero
+            if (!isHunter) {
+                for (let i = 0; i < scarfPixels.length; i++) {
+                    const sp = scarfPixels[i];
+                    const waveY = Math.round(Math.sin(state.tick * 0.3 + i * 0.7) * 1.5);
+                    const col = i % 2 === 0 ? skin.scarf1 : skin.scarf2;
+                    pRect(sp.x - state.camX - i * 1.6, sp.y + waveY, 4, 3, col);
+                }
+            }
+
+            const f = Math.floor(isHunter ? hunter.frame : runner.frame) % 6;
+
+            // 3. Parkour Slide / Tackle Character Pose
+            if (!isHunter && runner.pose === 'slide') {
+                // Ground shadow
+                pRect(sx - 10, sy - 2, 22, 2, 'rgba(0,0,0,0.55)');
+                // Sparks under sliding boots
+                if (state.tick % 2 === 0) {
+                    pRect(sx + 10, sy - 3, 3, 2, '#fee440');
+                    pRect(sx - 8, sy - 2, 2, 2, '#00f5d4');
+                }
+                // Extended Legs & Neon Sneakers forward
+                pRect(sx + 2, sy - 6, 9, 4, '#0f172a');
+                pRect(sx + 10, sy - 7, 4, 5, skin.shoes);
+                pRect(sx + 11, sy - 5, 3, 1, '#ffffff');
+                // Reclined Jacket Torso
+                pRect(sx - 7, sy - 10, 11, 6, skin.suit);
+                pRect(sx - 5, sy - 9, 7, 2, skin.trim);
+                // Sliding Head & Glowing Visor
+                pRect(sx - 11, sy - 17, 8, 7, skin.suit);
+                pRect(sx - 9, sy - 16, 6, 5, skin.skin);
+                pRect(sx - 6, sy - 15, 5, 2, skin.visor);
+                return;
+            }
+
+            // 4. Upright Running / Jumping / Vaulting Detailed Pixel Character
+            const bob = (!runner.onGround && !isHunter) ? 0 : ((f === 1 || f === 4) ? -2 : ((f === 2 || f === 5) ? -1 : 0));
+            const headY = sy - 27 + bob;
+            const torsoY = sy - 18 + bob;
+
+            // Ground shadow
+            if (isHunter || runner.onGround) {
+                pRect(sx - 6, sy - 1, 13, 2, 'rgba(0,0,0,0.55)');
+            }
+
+            // Back Arm (Swinging opposite to front leg)
+            const armPhase = (f < 3) ? 1 : -1;
+            pRect(sx - 2 + armPhase * 3, torsoY + 2, 3, 6, isHunter ? '#1e293b' : skin.suit);
+            pRect(sx - 2 + armPhase * 4, torsoY + 7, 3, 2, isHunter ? '#ff2a5f' : skin.visor);
+
+            // Animated Legs + High-Top Sneakers (6-frame run cycle + jump/vault poses)
+            if (!isHunter && !runner.onGround) {
+                if (runner.pose === 'vault') {
+                    // Kong Vault tucked horizontal legs
+                    pRect(sx - 8, sy - 13, 6, 4, '#0f172a');
+                    pRect(sx - 10, sy - 13, 3, 4, skin.shoes);
+                    pRect(sx - 5, sy - 9, 6, 4, '#1e293b');
+                    pRect(sx - 7, sy - 9, 3, 4, skin.shoes);
+                } else {
+                    // Dynamic mid-air parkour split leap
+                    pRect(sx - 6, sy - 10, 4, 6, '#0f172a');
+                    pRect(sx - 7, sy - 5, 5, 3, skin.shoes);
+                    pRect(sx + 2, sy - 12, 4, 6, '#1e293b');
+                    pRect(sx + 3, sy - 7, 5, 3, skin.shoes);
+                }
+            } else {
+                // 6-Frame Crisp Pixel Run Stride
+                const stride = [
+                    { lx: -5, ly: -8, rx: 3, ry: -8 },
+                    { lx: -3, ly: -9, rx: 2, ry: -7 },
+                    { lx: 0,  ly: -8, rx: -1, ry: -8 },
+                    { lx: 3,  ly: -8, rx: -5, ry: -8 },
+                    { lx: 2,  ly: -7, rx: -3, ry: -9 },
+                    { lx: -1, ly: -8, rx: 0,  ry: -8 }
+                ][f];
+
+                const shoeCol = isHunter ? '#dc2626' : skin.shoes;
+                // Back leg
+                pRect(sx + stride.lx, sy + stride.ly, 4, 6, '#090d16');
+                pRect(sx + stride.lx, sy + stride.ly + 5, 5, 3, shoeCol);
+                // Front leg
+                pRect(sx + stride.rx, sy + stride.ry, 4, 6, '#1e293b');
+                pRect(sx + stride.rx, sy + stride.ry + 5, 5, 3, shoeCol);
+                pRect(sx + stride.rx + 1, sy + stride.ry + 6, 3, 1, '#ffffff'); // Sneaker stripe
+            }
+
+            // Detailed Jacket / Armor Torso
+            if (isHunter) {
+                // Heavy Enforcer Armor with flashing police beacon
+                pRect(sx - 4, torsoY, 9, 10, '#0f172a');
+                pRect(sx - 3, torsoY + 1, 7, 8, '#1e293b');
+                pRect(sx + 1, torsoY + 2, 2, 6, '#ff2a5f'); // Red tactical tie/stripe
+                pRect(sx - 2, torsoY + 2, 2, 2, '#fee440'); // Gold badge
+                // Flashing red/blue shoulder siren
+                const sirenCol = (state.tick % 8 < 4) ? '#ff2a5f' : '#00bbf9';
+                pRect(sx - 3, torsoY - 1, 3, 2, sirenCol);
+            } else {
+                pRect(sx - 4, torsoY, 9, 10, '#090d16'); // Outline
+                pRect(sx - 3, torsoY + 1, 7, 8, skin.suit);
+                // Neon jacket zipper & belt
+                pRect(sx + 2, torsoY + 1, 2, 7, skin.trim);
+                pRect(sx - 3, torsoY + 8, 7, 1, '#090d16');
+            }
+
+            // Detailed Character Head (Hair / Headband / Cyber Visor)
+            if (isHunter) {
+                pRect(sx - 4, headY, 9, 9, '#090d16');
+                pRect(sx - 3, headY + 1, 7, 7, '#1e293b');
+                // Menacing glowing red visor
+                pRect(sx, headY + 3, 5, 3, '#ff2a5f');
+                pRect(sx + 2, headY + 4, 2, 1, '#ffffff');
+            } else {
+                // Main Parkour Hero Head: Spiky Dark Hair + Red Headband + Glowing Cyan Visor
+                pRect(sx - 4, headY, 9, 9, '#090d16');
+                pRect(sx - 5, headY, 3, 2, '#090d16');     // Windswept hair spike
+                pRect(sx - 3, headY + 2, 7, 6, skin.skin); // Face
+                pRect(sx - 4, headY + 2, 9, 2, '#ff2a5f'); // Red headband
+                pRect(sx, headY + 3, 5, 3, '#00f5d4');     // Glowing cyan visor
+                pRect(sx + 2, headY + 3, 2, 1, '#ffffff'); // Visor shine
+            }
+
+            // Front Arm (Swinging forward/back) + Hunter Stun Baton
+            if (isHunter) {
+                pRect(sx + 2, torsoY + 2, 5, 3, '#0f172a');
+                pRect(sx + 7, torsoY - 2, 3, 7, '#1e293b');
+                const sparkCol = state.tick % 4 < 2 ? '#fee440' : '#00f5d4';
+                pRect(sx + 7, torsoY - 4, 4, 3, sparkCol);
+            } else {
+                pRect(sx - 1 - armPhase * 3, torsoY + 2, 3, 5, skin.suit);
+                pRect(sx - 1 - armPhase * 3, torsoY + 6, 3, 2, skin.visor);
+            }
+        }
+
+        function drawExclamationPixelIcon(x, y) {
+            // Classic Retro Red/Yellow "!" Box
+            pRect(x - 5, y - 16, 10, 14, '#ff2a5f');
+            pRect(x - 4, y - 15, 8, 12, '#090b16');
+            pRect(x - 1, y - 13, 2, 6, '#fee440');
+            pRect(x - 1, y - 5, 2, 2, '#fee440');
+        }
+
+        function renderPixelFrame() {
+            ctx.save();
+
+            if (state.shake > 0.2) {
+                const dx = Math.round((Math.random() - 0.5) * state.shake);
+                const dy = Math.round((Math.random() - 0.5) * state.shake);
+                ctx.translate(dx, dy);
+                state.shake *= 0.82;
+            } else {
+                state.shake = 0;
+            }
+
+            // 1. Banded 16-Bit Night Sky Background
+            pRect(0, 0, W, 55, '#070914');
+            pRect(0, 55, W, 55, '#0d1326');
+            pRect(0, 110, W, 60, '#141e38');
+            pRect(0, 170, W, 46, '#1c294a');
+
+            // Pixel Cyberpunk Moon
+            pRect(310, 22, 18, 18, '#fef08a');
+            pRect(314, 19, 10, 24, '#fef08a');
+            pRect(307, 25, 24, 12, '#fef08a');
+
+            // 2. Parallax Pixel Skyscrapers
+            const colors = ['#090d1a', '#050811'];
+            const speeds = [0.15, 0.35];
+            for (let l = 0; l < 2; l++) {
+                for (const b of bgSkyscrapers[l]) {
+                    let bx = Math.round((b.x - state.camX * speeds[l]) % 1100);
+                    if (bx < -60) bx += 1100;
+                    const by = H - b.h;
+                    pRect(bx, by, b.w, b.h, colors[l]);
+
+                    if (b.antenna) {
+                        pRect(bx + Math.floor(b.w / 2), by - 12, 2, 12, colors[l]);
+                        if (state.tick % 30 < 15) {
+                            pRect(bx + Math.floor(b.w / 2), by - 14, 2, 2, '#ff2a5f');
+                        }
+                    }
+                    // Pixel Windows grid
+                    if (l === 1) {
+                        for (let wy = by + 6; wy < H - 15; wy += 8) {
+                            for (let wx = bx + 4; wx < bx + b.w - 6; wx += 6) {
+                                if ((wx + wy) % 3 === 0) {
+                                    pRect(wx, wy, 2, 3, '#1e293b');
+                                }
+                            }
+                        }
+                    }
+                    if (b.neon) {
+                        pRect(bx + 3, by + 10, b.w - 6, 3, b.neon);
+                    }
+                }
+            }
+
+            // 3. Rooftop Floors
+            for (const f of floors) {
+                const fx = Math.round(f.x - state.camX);
+                if (fx + f.w < -20 || fx > W + 20) continue;
+                pRect(fx, f.y, f.w, H - f.y + 20, '#04060c');
+                // Neon Cyan Top Roof Trim
+                pRect(fx, f.y, f.w, 2, '#00bbf9');
+                // Industrial pixel girder pattern
+                for (let gx = fx + 8; gx < fx + f.w - 8; gx += 16) {
+                    pRect(gx, f.y + 5, 8, 3, '#0f172a');
+                }
+            }
+
+            // 4. Traps & Obstacles
+            for (const t of traps) {
+                const tx = Math.round(t.x - state.camX);
+                if (tx < -80 || tx > W + 80) continue;
+
+                // Spoiler Radar Outline if enabled
+                if (state.radarSpoiler && t.triggerDist) {
+                    pRect(tx - 1, t.y - 38, 2, 38, 'rgba(254, 228, 64, 0.35)');
+                }
+
+                if (t.type === 'vault_box') {
+                    pRect(tx, t.y - t.h, t.w, t.h, '#090d1a');
+                    pRect(tx, t.y - t.h, t.w, 2, '#00f5d4');
+                    pRect(tx, t.y - 2, t.w, 2, '#00f5d4');
+                    pRect(tx, t.y - t.h, 2, t.h, '#00f5d4');
+                    pRect(tx + t.w - 2, t.y - t.h, 2, t.h, '#00f5d4');
+                    // Inner X crate detail
+                    pRect(tx + 6, t.y - t.h + 6, t.w - 12, t.h - 12, '#00bbf9');
+                } else if (t.type === 'spike_mimic_box' || t.type === 'walking_box') {
+                    const isEvil = t.triggered || state.radarSpoiler;
+                    const borderCol = isEvil ? '#ff2a5f' : '#00f5d4';
+                    pRect(tx, t.y - t.h, t.w, t.h, '#090d1a');
+                    pRect(tx, t.y - t.h, t.w, 2, borderCol);
+                    pRect(tx, t.y - t.h, 2, t.h, borderCol);
+                    pRect(tx + t.w - 2, t.y - t.h, 2, t.h, borderCol);
+
+                    if (t.triggered) {
+                        // Draw Angry Monster Eyes & Fangs on Mimic Crate Character!
+                        pRect(tx + 4, t.y - t.h + 5, 4, 3, '#fee440');
+                        pRect(tx + t.w - 8, t.y - t.h + 5, 4, 3, '#fee440');
+                        pRect(tx + 5, t.y - t.h + 6, 2, 2, '#ff2a5f');
+                        pRect(tx + t.w - 7, t.y - t.h + 6, 2, 2, '#ff2a5f');
+                        // Monster Mouth with pixel teeth
+                        pRect(tx + 5, t.y - 7, t.w - 10, 4, '#05060d');
+                        pRect(tx + 6, t.y - 7, 2, 2, '#ffffff');
+                        pRect(tx + t.w - 8, t.y - 7, 2, 2, '#ffffff');
+
+                        // Deadly Pixel Spikes on top!
+                        for (let sx = tx + 2; sx < tx + t.w - 3; sx += 5) {
+                            pRect(sx, t.y - t.h - 5, 3, 5, '#ff2a5f');
+                            pRect(sx + 1, t.y - t.h - 7, 1, 2, '#fee440');
+                        }
+                        // Animated Monster Legs if walking box
+                        if (t.type === 'walking_box') {
+                            const legOff = state.tick % 6 < 3 ? 2 : 0;
+                            pRect(tx + 4, t.y, 3, 4 - legOff, '#ff2a5f');
+                            pRect(tx + t.w - 7, t.y, 3, 2 + legOff, '#ff2a5f');
+                        }
+                    } else {
+                        pRect(tx + 6, t.y - t.h + 6, t.w - 12, t.h - 12, '#00bbf9');
+                    }
+                } else if (t.type === 'glass' && !t.broken) {
+                    pRect(tx, t.y - t.h, t.w, t.h, 'rgba(144, 224, 239, 0.35)');
+                    pRect(tx, t.y - t.h, 2, t.h, '#90e0ef');
+                    pRect(tx + 2, t.y - t.h + 8, 2, 10, '#ffffff');
+                } else if (t.type === 'fake_glass') {
+                    if (!t.triggered) {
+                        pRect(tx, t.y - t.h, 8, t.h, 'rgba(144, 224, 239, 0.35)');
+                        pRect(tx, t.y - t.h, 2, t.h, '#90e0ef');
+                    } else {
+                        // Solid Heavy Steel Block!
+                        pRect(tx, t.y - t.h, t.w, t.h, '#334155');
+                        pRect(tx, t.y - t.h, t.w, 2, '#f8fafc');
+                        pRect(tx + 2, t.y - t.h + 5, t.w - 4, 3, '#ff2a5f');
+                    }
+                } else if (t.type === 'boost_pad') {
+                    pRect(tx, t.y - 3, t.w, 3, '#00f5d4');
+                    pRect(tx + 4, t.y - 5, t.w - 8, 2, '#fee440');
+                } else if (t.type === 'Sudden_bridge') {
+                    const by = Math.round(t.y + t.dropY);
+                    pRect(tx, by, t.w, 8, '#1e293b');
+                    // Hazard yellow/black stripes
+                    for (let hx = tx; hx < tx + t.w; hx += 8) {
+                        pRect(hx, by, 4, 3, '#fee440');
+                    }
+                } else if (t.type === 'overhang') {
+                    const topY = t.y - t.h - 14;
+                    pRect(tx, topY, t.w, t.h, '#05070e');
+                    pRect(tx, topY + t.h - 2, t.w, 2, '#ff2a5f');
+                    pRect(tx + 3, t.y - 14, 2, 14, '#1e293b');
+                    pRect(tx + t.w - 5, t.y - 14, 2, 14, '#1e293b');
+                } else if (t.type === 'crusher') {
+                    const cy = Math.round((t.y - 52) + t.dropY - 26);
+                    pRect(tx + Math.floor(t.w / 2) - 2, 0, 4, cy, '#1e293b');
+                    pRect(tx, cy, t.w, 26, '#090d1a');
+                    pRect(tx, cy + 24, t.w, 2, '#ff2a5f');
+                    for (let sx = tx + 3; sx < tx + t.w - 3; sx += 6) {
+                        pRect(sx, cy + 26, 3, 4, '#fee440');
+                    }
+                } else if (t.type === 'laser' || t.type === 'elevator_laser') {
+                    const mode = t.type === 'laser' ? t.mode : t.currentMode;
+                    // Vertical Post + Hovering Security Drone Character on top
+                    pRect(tx - 2, t.y - 46, 4, 46, '#1e293b');
+                    const droneBob = Math.round(Math.sin(state.tick * 0.2) * 2);
+                    pRect(tx - 6, t.y - 52 + droneBob, 12, 6, '#334155');
+                    pRect(tx - 2, t.y - 50 + droneBob, 4, 3, '#ff2a5f'); // Drone red eye
+                    // Glowing Pixel Laser Beam
+                    const beamCol = state.tick % 4 < 2 ? '#ff2a5f' : '#ff758f';
+                    if (mode === 'low') {
+                        pRect(tx - 1, t.y - 22, 3, 20, beamCol);
+                        pRect(tx, t.y - 22, 1, 20, '#ffffff');
+                    } else {
+                        pRect(tx - 1, t.y - 44, 3, 30, beamCol);
+                        pRect(tx, t.y - 44, 1, 30, '#ffffff');
+                    }
+                }
+
+                // Draw Retro "!" Ambush Alert Icon when trap triggers!
+                if (t.alertTimer > 0) {
+                    drawExclamationPixelIcon(tx + 4, t.y - 48);
+                }
+            }
+
+            // 5. Exit Freedom Gate
+            const ex = Math.round(exitGate.x - state.camX);
+            if (ex > -40 && ex < W + 40) {
+                pRect(ex, exitGate.y - 44, 18, 44, 'rgba(0, 245, 212, 0.25)');
+                pRect(ex, exitGate.y - 44, 18, 3, '#00f5d4');
+                pRect(ex, exitGate.y - 44, 3, 44, '#00f5d4');
+                pRect(ex + 15, exitGate.y - 44, 3, 44, '#00f5d4');
+            }
+
+            // 6. Draw Detailed Pixel Hunter & Hero Characters
+            drawPixelCharacter(hunter.x, hunter.y, true);
+            drawPixelCharacter(runner.x, runner.y, false);
+
+            // Mocking Pixel Speech Bubble above Hunter when player dies!
+            if (state.status === 'dead') {
+                const hx = Math.round(hunter.x - state.camX);
+                const hy = Math.round(hunter.y - 38 + Math.sin(state.tick * 0.35) * 2);
+                pRect(hx - 14, hy - 11, 34, 12, '#fee440');
+                pRect(hx - 13, hy - 10, 32, 10, '#090b16');
+                pRect(hx - 2, hy + 1, 3, 3, '#fee440');
+                ctx.fillStyle = '#ff2a5f';
+                ctx.font = 'bold 8px monospace';
+                ctx.fillText(state.laughBubble, hx - 10, hy - 2);
+            }
+
+            // 7. Draw Chunky Pixel Particles
+            for (const p of particles) {
+                pRect(p.x - state.camX, p.y, p.size, p.size, p.color);
+            }
+
+            ctx.restore();
+        }
+
+        function mainLoop() {
+            updateGame();
+            renderPixelFrame();
+            requestAnimationFrame(mainLoop);
+        }
+
+        /**************************************************************
+         * 8. MINIMAL HUD & AUTO-ADVANCE STAGE WIN
+         **************************************************************/
+        function updateHUD() {
+            const stg = STAGES[state.stageIdx];
+            document.getElementById('hudStage').textContent = `مرحله ${toFa(stg.id)} / ۱۰`;
+            document.getElementById('hudDeaths').textContent = `💀 ${toFa(state.totalDeaths)}`;
+        }
+
+        function updateProgressUI() {
+            // No external progress bars needed in pure full-screen mode
+        }
+
+        function handleStageWin() {
+            state.status = 'won';
+            sfx.win();
+            // Automatically load next stage after brief celebration
+            setTimeout(() => {
+                loadStage((state.stageIdx + 1) % STAGES.length, true);
+            }, 650);
+        }
+
+        /**************************************************************
+         * 9. INPUT LISTENERS (Keyboard, Mouse, Touch)
+         **************************************************************/
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === ' ' || k === 'arrowup' || k === 'w') {
+                e.preventDefault();
+                doJump();
+            } else if (k === 'arrowdown' || k === 's') {
+                e.preventDefault();
+                doSlide();
+            } else if (k === 'arrowright' || k === 'd') {
+                e.preventDefault();
+                doDash();
+            } else if (k === 'r') {
+                e.preventDefault();
+                loadStage(state.stageIdx, false);
+            }
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (state.status === 'dead') {
+                loadStage(state.stageIdx, false);
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            if (y > rect.height * 0.62) doSlide();
+            else doJump();
+        });
+
+        window.onload = () => {
+            initPixelCity();
+            loadStage(0, true);
+            requestAnimationFrame(mainLoop);
+        };
+    </script>
+</body>
+</html>
